@@ -74,6 +74,7 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [downloadedFileName, setDownloadedFileName] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false); 
   
   // Determine theme based on company
   const theme = useMemo(() => {
@@ -98,27 +99,30 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
     ? profile.bio.substring(0, bioCharLimit) + '...' 
     : profile?.bio || '';
 
-  const handleDownloadVCard = async () => {
-    try {
-      const response = await fetch(`/api/vcard?userId=${userId}`);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const fileName = `${profile.fullName.replace(/\s+/g, '-')}.vcf`;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      // Save filename and show modal
-      setDownloadedFileName(fileName);
-      setShowModal(true);
-    } catch (error) {
-      console.error('Error downloading vCard:', error);
-    }
-  };
+const handleDownloadVCard = async () => {
+  setIsDownloading(true); // ADD THIS LINE
+  try {
+    const response = await fetch(`/api/vcard?userId=${userId}`);
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const fileName = `${profile.fullName.replace(/\s+/g, '-')}.vcf`;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    // Save filename and show modal
+    setDownloadedFileName(fileName);
+    setShowModal(true);
+  } catch (error) {
+    console.error('Error downloading vCard:', error);
+  } finally {
+    setIsDownloading(false); // ADD THIS LINE
+  }
+};
 
   const handleWhatsAppClick = () => {
     if (!profile.phone) return;
@@ -320,10 +324,11 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
             <div className="space-y-2.5">
               <button
                 onClick={handleDownloadVCard}
-                className={`w-full flex items-center justify-center gap-2 bg-gradient-to-r ${theme.buttonGradient} text-white py-3 px-6 rounded-lg font-medium text-sm ${theme.buttonHover} transition-all duration-200 shadow-sm hover:shadow-md`}
+                disabled={isDownloading} // ADD THIS LINE
+                className={`w-full flex items-center justify-center gap-2 bg-gradient-to-r ${theme.buttonGradient} text-white py-3 px-6 rounded-lg font-medium text-sm ${theme.buttonHover} transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed`} // ADD disabled classes
               >
-                <Download className="w-4 h-4" />
-                Save Contact
+                <Download className={`w-4 h-4 ${isDownloading ? 'animate-bounce' : ''}`} /> {/* ADD animation */}
+                {isDownloading ? 'Saving...' : 'Save Contact'} {/* CHANGE THIS LINE */}
               </button>
 
               {profile.phone && (
