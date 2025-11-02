@@ -49,10 +49,10 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
         const qrDataUrl = await QRCode.toDataURL(profileUrl, {
           width: 300,
           margin: 2,
-          color: {
-            dark: '#FF6B35',
-            light: '#FFFFFF',
-          },
+          // color: {
+          //   dark: '#FF6B35',
+          //   light: '#FFFFFF',
+          // },
         });
         
         setQrCode(qrDataUrl);
