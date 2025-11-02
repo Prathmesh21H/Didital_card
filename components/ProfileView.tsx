@@ -34,6 +34,14 @@ export default function ProfileView({ profile, userId, docId }: ProfileViewProps
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showFullBio, setShowFullBio] = useState(false);
   
+  // Debug logging - remove after fixing
+  useEffect(() => {
+    console.log('Debug - user:', user);
+    console.log('Debug - user?.uid:', user?.uid);
+    console.log('Debug - userId prop:', userId);
+    console.log('Debug - isOwner:', !!(user?.uid && userId && user.uid === userId));
+  }, [user, userId]);
+  
   // Fixed ownership check - ensure both values exist before comparing
   const isOwner = !!(user?.uid && userId && user.uid === userId);
   
@@ -68,11 +76,12 @@ export default function ProfileView({ profile, userId, docId }: ProfileViewProps
 
   const handleAddContact = async () => {
     try {
-      // Use docId for the API call (the Firestore document ID)
-      const response = await fetch(`/api/vcard?docId=${docId}`);
+      // Use docId for the API call (matches the 'userId' param in your API)
+      const response = await fetch(`/api/vcard?userId=${docId}`);
       
       if (!response.ok) {
-        console.error('Failed to fetch vCard:', response.status, await response.text());
+        const errorText = await response.text();
+        console.error('Failed to fetch vCard:', response.status, errorText);
         setSaveStatus('error');
         setTimeout(() => setSaveStatus('idle'), 3000);
         return;
@@ -372,6 +381,16 @@ export default function ProfileView({ profile, userId, docId }: ProfileViewProps
           )}
 
           {/* QR Code Section - Only visible to owner */}
+          {/* Debug info - remove after fixing */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="px-8 pb-4 text-xs text-gray-500 font-mono">
+              <div>user?.uid: {user?.uid || 'undefined'}</div>
+              <div>userId prop: {userId || 'undefined'}</div>
+              <div>docId prop: {docId || 'undefined'}</div>
+              <div>isOwner: {isOwner ? 'true' : 'false'}</div>
+            </div>
+          )}
+          
           {isOwner && (
             <div className="px-8 pb-8">
               <div className="bg-gradient-to-br from-green-50 to-orange-50 rounded-xl p-6 border border-gray-200">
