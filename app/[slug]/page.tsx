@@ -22,7 +22,6 @@ interface ProfileData {
   qrCodeUrl?: string;
 }
 
-// Serialize function to convert Firestore data to plain objects
 function serializeProfile(data: any): ProfileData {
   return {
     slug: data.slug || '',
@@ -42,7 +41,7 @@ function serializeProfile(data: any): ProfileData {
   };
 }
 
-async function getProfileBySlug(slug: string): Promise<{ profile: ProfileData; userId: string } | null> {
+async function getProfileBySlug(slug: string): Promise<{ profile: ProfileData; userId: string; docId: string } | null> {
   try {
     const q = query(collection(db, 'profiles'), where('slug', '==', slug));
     const querySnapshot = await getDocs(q);
@@ -54,12 +53,12 @@ async function getProfileBySlug(slug: string): Promise<{ profile: ProfileData; u
     const profileDoc = querySnapshot.docs[0];
     const rawData = profileDoc.data();
     
-    // Serialize the data to remove Firestore-specific objects
     const serializedProfile = serializeProfile(rawData);
     
     return {
       profile: serializedProfile,
-      userId: profileDoc.id,
+      userId: rawData.userId || rawData.uid || profileDoc.id, // Get the auth UID from the document data
+      docId: profileDoc.id, // Keep the document ID for API calls
     };
   } catch (error) {
     console.error('Error fetching profile:', error);
@@ -75,7 +74,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ slug: 
     notFound();
   }
 
-  return <ProfileView profile={data.profile} userId={data.userId} />;
+  return <ProfileView profile={data.profile} userId={data.userId} docId={data.docId} />;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {

@@ -1,7 +1,6 @@
-// components/ProfileView.tsx
 'use client';
 import { useEffect, useState } from 'react';
-import { Phone, Mail, Globe, Linkedin, Twitter, Instagram, Facebook, UserPlus, Share2, CheckCircle, MapPin, Building2, Briefcase, ChevronDown, ChevronUp } from 'lucide-react';
+import { Phone, Mail, Globe, Linkedin, Twitter, Instagram, Facebook, UserPlus, Share2, CheckCircle, Building2, Briefcase, ChevronDown, ChevronUp } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -24,17 +23,20 @@ interface ProfileData {
 
 interface ProfileViewProps {
   profile: ProfileData;
-  userId: string;
+  userId: string;  // Auth UID for ownership check
+  docId: string;   // Firestore document ID for API calls
 }
 
-export default function ProfileView({ profile, userId }: ProfileViewProps) {
+export default function ProfileView({ profile, userId, docId }: ProfileViewProps) {
   const { user } = useAuth();
   const [qrCode, setQrCode] = useState<string>('');
   const [qrLoading, setQrLoading] = useState(true);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showFullBio, setShowFullBio] = useState(false);
   
-  const isOwner = user?.uid === userId;
+  // Fixed ownership check - ensure both values exist before comparing
+  const isOwner = !!(user?.uid && userId && user.uid === userId);
+  
   const bioLimit = 150;
   const shouldTruncate = profile.bio && profile.bio.length > bioLimit;
 
@@ -66,9 +68,19 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
 
   const handleAddContact = async () => {
     try {
-      const response = await fetch(`/api/vcard?userId=${userId}`);
+      // Use docId for the API call (the Firestore document ID)
+      const response = await fetch(`/api/vcard?docId=${docId}`);
+      
+      if (!response.ok) {
+        console.error('Failed to fetch vCard:', response.status, await response.text());
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+        return;
+      }
+      
       const blob = await response.blob();
       
+      // Try native sharing first (mobile devices)
       if (navigator.share && navigator.canShare) {
         const file = new File([blob], `${profile.fullName}.vcf`, { type: 'text/vcard' });
         
@@ -84,6 +96,7 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
         }
       }
       
+      // Fallback to download
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -97,6 +110,8 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (error) {
       console.error('Error adding contact:', error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
     }
   };
 
@@ -181,6 +196,8 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
                   className={`inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all shadow-sm ${
                     saveStatus === 'success'
                       ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : saveStatus === 'error'
+                      ? 'bg-red-500 hover:bg-red-600 text-white'
                       : 'bg-orange-500 hover:bg-orange-600 text-white'
                   }`}
                 >
@@ -188,6 +205,10 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
                     <>
                       <CheckCircle className="w-5 h-5" />
                       Added Successfully!
+                    </>
+                  ) : saveStatus === 'error' ? (
+                    <>
+                      Error - Try Again
                     </>
                   ) : (
                     <>
