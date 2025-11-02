@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import ThemeEditor from '@/components/ThemeEditor';
 
 interface ProfileData {
   slug: string;
@@ -21,6 +22,9 @@ interface ProfileData {
   twitter: string;
   instagram: string;
   facebook: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
 }
 
 export default function EditProfilePage() {
@@ -40,6 +44,9 @@ export default function EditProfilePage() {
     twitter: '',
     instagram: '',
     facebook: '',
+    logoUrl: '',
+    primaryColor: 'orange',
+    secondaryColor: 'green',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -61,7 +68,13 @@ export default function EditProfilePage() {
         const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
         if (profileDoc.exists()) {
           const data = profileDoc.data() as ProfileData;
-          setFormData(data);
+          setFormData({
+            ...data,
+            // Ensure theme fields are populated
+            logoUrl: data.logoUrl || '',
+            primaryColor: data.primaryColor || 'orange',
+            secondaryColor: data.secondaryColor || 'green',
+          });
           setImagePreview(data.profileImage || '');
         } else {
           setFormData(prev => ({ ...prev, email: user.email || '' }));
@@ -73,6 +86,36 @@ export default function EditProfilePage() {
 
     fetchProfile();
   }, [user, loading, router]);
+
+  // Add a refresh effect when navigating back from dashboard
+  useEffect(() => {
+    const handleFocus = async () => {
+      if (!user) return;
+      
+      try {
+        const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
+        if (profileDoc.exists()) {
+          const data = profileDoc.data() as ProfileData;
+          setFormData({
+            ...data,
+            logoUrl: data.logoUrl || '',
+            primaryColor: data.primaryColor || 'orange',
+            secondaryColor: data.secondaryColor || 'green',
+          });
+          setImagePreview(data.profileImage || '');
+        }
+      } catch (err) {
+        console.error('Error refreshing profile:', err);
+      }
+    };
+
+    // Refresh profile when window regains focus
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,64 +146,83 @@ export default function EditProfilePage() {
     return data.secure_url;
   };
 
-  const generateSlug = (name: string): string => {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+  const handleThemeSave = async (logoUrl: string, primaryColor: string, secondaryColor: string) => {
+    if (!user) return;
+    
+    try {
+      // Update local state immediately
+      setFormData(prev => ({
+        ...prev,
+        logoUrl,
+        primaryColor,
+        secondaryColor
+      }));
+      
+      // Save to Firestore immediately
+      await setDoc(doc(db, 'profiles', user.uid), {
+        logoUrl,
+        primaryColor,
+        secondaryColor,
+        updatedAt: new Date(),
+      }, { merge: true });
+      
+      setSuccess('Theme updated successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError('Failed to update theme: ' + err.message);
+      setTimeout(() => setError(''), 5000);
+    }
   };
 
-// Remove slug from ProfileData interface and all slug-related code
-// Just save the profile directly without worrying about slugs
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!user) return;
+    setError('');
+    setSuccess('');
+    setSaving(true);
 
-  setError('');
-  setSuccess('');
-  setSaving(true);
+    try {
+      let imageUrl = formData.profileImage;
+      
+      if (imageFile) {
+        setUploading(true);
+        imageUrl = await uploadToCloudinary(imageFile);
+        setUploading(false);
+      }
 
-  try {
-    let imageUrl = formData.profileImage;
-    
-    if (imageFile) {
-      setUploading(true);
-      imageUrl = await uploadToCloudinary(imageFile);
+      const profileData = {
+        fullName: formData.fullName,
+        designation: formData.designation,
+        company: formData.company,
+        bio: formData.bio,
+        profileImage: imageUrl,
+        phone: formData.phone,
+        email: formData.email,
+        website: formData.website,
+        linkedin: formData.linkedin,
+        twitter: formData.twitter,
+        instagram: formData.instagram,
+        facebook: formData.facebook,
+        logoUrl: formData.logoUrl || '',
+        primaryColor: formData.primaryColor || 'orange',
+        secondaryColor: formData.secondaryColor || 'green',
+        updatedAt: new Date(),
+      };
+
+      await setDoc(doc(db, 'profiles', user.uid), profileData);
+
+      setSuccess('Profile saved successfully!');
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save profile');
+    } finally {
+      setSaving(false);
       setUploading(false);
     }
-
-    // Save directly with user.uid as document ID
-    const profileData = {
-      fullName: formData.fullName,
-      designation: formData.designation,
-      company: formData.company,
-      bio: formData.bio,
-      profileImage: imageUrl,
-      phone: formData.phone,
-      email: formData.email,
-      website: formData.website,
-      linkedin: formData.linkedin,
-      twitter: formData.twitter,
-      instagram: formData.instagram,
-      facebook: formData.facebook,
-      updatedAt: new Date(),
-    };
-
-    await setDoc(doc(db, 'profiles', user.uid), profileData);
-
-    setSuccess('Profile saved successfully!');
-    setTimeout(() => {
-      router.push('/dashboard');
-    }, 1500);
-  } catch (err: any) {
-    setError(err.message || 'Failed to save profile');
-  } finally {
-    setSaving(false);
-    setUploading(false);
-  }
-};
-
+  };
 
   if (loading) {
     return (
@@ -196,6 +258,37 @@ const handleSubmit = async (e: React.FormEvent) => {
               {success}
             </div>
           )}
+
+          {/* Theme Editor */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Brand Theme</h2>
+              <button
+                onClick={async () => {
+                  if (!user) return;
+                  const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
+                  if (profileDoc.exists()) {
+                    const data = profileDoc.data() as ProfileData;
+                    setFormData(prev => ({
+                      ...prev,
+                      logoUrl: data.logoUrl || '',
+                      primaryColor: data.primaryColor || 'orange',
+                      secondaryColor: data.secondaryColor || 'green',
+                    }));
+                  }
+                }}
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                ↻ Refresh Theme
+              </button>
+            </div>
+            <ThemeEditor
+              currentLogo={formData.logoUrl}
+              currentPrimaryColor={formData.primaryColor}
+              currentSecondaryColor={formData.secondaryColor}
+              onSave={handleThemeSave}
+            />
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Profile Image */}

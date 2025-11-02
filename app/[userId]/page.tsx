@@ -18,6 +18,9 @@ interface ProfileData {
   twitter?: string;
   instagram?: string;
   facebook?: string;
+  logoUrl?: string;        // ✅ Added theme fields
+  primaryColor?: string;   // ✅ Added theme fields
+  secondaryColor?: string; // ✅ Added theme fields
 }
 
 // Serialize function to convert Firestore data to plain objects
@@ -35,6 +38,9 @@ function serializeProfile(data: any): ProfileData {
     twitter: data.twitter || undefined,
     instagram: data.instagram || undefined,
     facebook: data.facebook || undefined,
+    logoUrl: data.logoUrl || undefined,           // ✅ Include theme fields
+    primaryColor: data.primaryColor || 'orange',  // ✅ Default to orange
+    secondaryColor: data.secondaryColor || 'green', // ✅ Default to green
   };
 }
 

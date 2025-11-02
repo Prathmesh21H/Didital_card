@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Phone, Mail, Globe, Linkedin, Twitter, Instagram, Facebook, Download, ChevronDown, ChevronUp, X, CheckCircle, MessageCircle } from 'lucide-react';
 
 interface ProfileData {
@@ -15,6 +15,9 @@ interface ProfileData {
   twitter?: string;
   instagram?: string;
   facebook?: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
 }
 
 interface ProfileViewProps {
@@ -22,75 +25,40 @@ interface ProfileViewProps {
   userId: string;
 }
 
-// Theme configurations for different companies
-const companyThemes = {
-  'Bharat Valley': {
-    logo: '/logo-bharat-valley.svg',
-    logoSize: 'h-20 w-auto',
-    headerHeight: 'h-32',
-    headerGradient: 'from-orange-500 via-white to-green-600',
-    primaryColor: 'orange',
-    secondaryColor: 'green',
-    borderColor: 'border-gray-100',
-    primaryBg: 'bg-orange-500',
-    primaryHover: 'hover:bg-orange-600',
-    primaryText: 'text-orange-600',
-    secondaryBg: 'bg-green-600',
-    secondaryText: 'text-green-700',
-    buttonGradient: 'from-orange-500 to-orange-600',
-    buttonHover: 'hover:from-orange-600 hover:to-orange-700',
-    bioGradient: 'from-orange-50/50 to-green-50/50',
-    bioBorder: 'border-gray-200',
-    accentColors: ['bg-orange-500', 'bg-gray-300', 'bg-green-600'],
-    contactHover: 'hover:bg-gray-50',
-    contactIcon: 'bg-orange-500',
-    contactIcon2: 'bg-green-600',
-  },
-  'Transformatrix': {
-    logo: '/tx-logo.png',
-    logoSize: 'w-72 h-auto',
-    headerHeight: 'h-32',
-    headerGradient: 'from-blue-600 via-white to-green-500',
-    primaryColor: 'blue',
-    secondaryColor: 'green',
-    borderColor: 'border-gray-100',
-    primaryBg: 'bg-blue-600',
-    primaryHover: 'hover:bg-blue-700',
-    primaryText: 'text-blue-600',
-    secondaryBg: 'bg-green-500',
-    secondaryText: 'text-green-600',
-    buttonGradient: 'from-blue-600 to-blue-700',
-    buttonHover: 'hover:from-blue-700 hover:to-blue-800',
-    bioGradient: 'from-blue-50/50 to-green-50/50',
-    bioBorder: 'border-gray-200',
-    accentColors: ['bg-blue-600', 'bg-gray-300', 'bg-green-500'],
-    contactHover: 'hover:bg-gray-50',
-    contactIcon: 'bg-blue-600',
-    contactIcon2: 'bg-green-500',
-  },
+// Color mapping for Tailwind colors to hex
+const colorMap: Record<string, { primary: string; secondary: string; light: string; lighter: string }> = {
+  orange: { primary: '#f97316', secondary: '#ea580c', light: '#fed7aa', lighter: '#ffedd5' },
+  blue: { primary: '#2563eb', secondary: '#1d4ed8', light: '#bfdbfe', lighter: '#dbeafe' },
+  purple: { primary: '#9333ea', secondary: '#7e22ce', light: '#d8b4fe', lighter: '#e9d5ff' },
+  red: { primary: '#dc2626', secondary: '#b91c1c', light: '#fca5a5', lighter: '#fecaca' },
+  green: { primary: '#16a34a', secondary: '#15803d', light: '#86efac', lighter: '#bbf7d0' },
+  teal: { primary: '#0d9488', secondary: '#0f766e', light: '#5eead4', lighter: '#99f6e4' },
+  pink: { primary: '#ec4899', secondary: '#db2777', light: '#f9a8d4', lighter: '#fbcfe8' },
+  indigo: { primary: '#4f46e5', secondary: '#4338ca', light: '#a5b4fc', lighter: '#c7d2fe' },
 };
 
 export default function ProfileView({ profile, userId }: ProfileViewProps) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [downloadedFileName, setDownloadedFileName] = useState('');
-  const [isDownloading, setIsDownloading] = useState(false); 
+  const [isDownloading, setIsDownloading] = useState(false);
   
-  // Determine theme based on company
-  const theme = useMemo(() => {
-    const company = profile.company || '';
-    const companyLower = company.toLowerCase();
-    
-    if (companyLower.includes('transformatrix')) {
-      return companyThemes['Transformatrix'];
-    }
-    if (companyLower.includes('bharat valley')) {
-      return companyThemes['Bharat Valley'];
-    }
-    
-    // Default to Bharat Valley if no match
-    return companyThemes['Bharat Valley'];
-  }, [profile.company]);
+  // Get theme colors from profile (dynamic)
+  const primaryColor = profile.primaryColor || 'orange';
+  const secondaryColor = profile.secondaryColor || 'green';
+  const logoUrl = profile.logoUrl || '/logo-bharat-valley.svg';
+  
+  // Get actual hex colors
+  const colors = {
+    primary: colorMap[primaryColor]?.primary || colorMap.orange.primary,
+    primaryDark: colorMap[primaryColor]?.secondary || colorMap.orange.secondary,
+    primaryLight: colorMap[primaryColor]?.light || colorMap.orange.light,
+    primaryLighter: colorMap[primaryColor]?.lighter || colorMap.orange.lighter,
+    secondary: colorMap[secondaryColor]?.primary || colorMap.green.primary,
+    secondaryDark: colorMap[secondaryColor]?.secondary || colorMap.green.secondary,
+    secondaryLight: colorMap[secondaryColor]?.light || colorMap.green.light,
+    secondaryLighter: colorMap[secondaryColor]?.lighter || colorMap.green.lighter,
+  };
   
   // Check if bio needs "Read More"
   const bioCharLimit = 150;
@@ -99,53 +67,41 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
     ? profile.bio.substring(0, bioCharLimit) + '...' 
     : profile?.bio || '';
 
-const handleDownloadVCard = async () => {
-  setIsDownloading(true); // ADD THIS LINE
-  try {
-    const response = await fetch(`/api/vcard?userId=${userId}`);
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const fileName = `${profile.fullName.replace(/\s+/g, '-')}.vcf`;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    
-    // Save filename and show modal
-    setDownloadedFileName(fileName);
-    setShowModal(true);
-  } catch (error) {
-    console.error('Error downloading vCard:', error);
-  } finally {
-    setIsDownloading(false); // ADD THIS LINE
-  }
-};
+  const handleDownloadVCard = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await fetch(`/api/vcard?userId=${userId}`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const fileName = `${profile.fullName.replace(/\s+/g, '-')}.vcf`;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      setDownloadedFileName(fileName);
+      setShowModal(true);
+    } catch (error) {
+      console.error('Error downloading vCard:', error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const handleWhatsAppClick = () => {
     if (!profile.phone) return;
-    
-    // Remove any non-numeric characters from phone number
     const cleanPhone = profile.phone.replace(/\D/g, '');
-    
-    // Pre-filled message
     const message = encodeURIComponent(`Hi ${profile.fullName}, I found your digital card!`);
-    
-    // WhatsApp URL
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${message}`;
-    
-    // Open in new tab
     window.open(whatsappUrl, '_blank');
   };
 
-  // Format phone number for display (remove country code)
   const formatPhoneDisplay = (phone: string) => {
     if (!phone) return '';
-    // Remove +91, +1, or any country code and spaces/dashes
     const formatted = phone.replace(/^\+\d{1,3}/, '').replace(/[\s-]/g, '');
-    // Add spacing for readability: 98765 43210
     if (formatted.length === 10) {
       return `${formatted.slice(0, 5)} ${formatted.slice(5)}`;
     }
@@ -155,23 +111,32 @@ const handleDownloadVCard = async () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-xl mx-auto md:py-12">
-        <div className={`bg-white md:rounded-2xl md:shadow-lg overflow-hidden md:border ${theme.borderColor}`}>
-          {/* Header with Logo - Clean & Minimal */}
-          <div className={`relative ${theme.headerHeight} bg-gradient-to-r ${theme.headerGradient} flex items-center justify-center`}>
+        <div className="bg-white md:rounded-2xl md:shadow-lg overflow-hidden md:border border-gray-100">
+          {/* Header with Logo - Dynamic Theme with INLINE STYLES */}
+          <div 
+            className="relative h-32 flex items-center justify-center"
+            style={{
+              background: `linear-gradient(to right, ${colors.primary}, white, ${colors.secondary})`
+            }}
+          >
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white/10"></div>
             <img 
-              src={theme.logo}
+              src={logoUrl}
               alt={profile.company || 'Company Logo'} 
-              className={`${theme.logoSize} drop-shadow-lg relative z-10`}
+              className="h-20 w-auto drop-shadow-lg relative z-10 object-contain"
+              onError={(e) => {
+                // Fallback if logo fails to load
+                e.currentTarget.src = '/logo-bharat-valley.svg';
+              }}
             />
           </div>
           
           {/* Profile Content */}
           <div className="relative px-5 py-8 md:px-8 md:py-10">
-            {/* Profile Image - Elegant & Refined */}
+            {/* Profile Image */}
             {profile.profileImage && (
               <div className="flex justify-center mb-8">
-                <div className={`w-32 h-32 rounded-full border-2 border-gray-200 shadow-sm overflow-hidden bg-white`}>
+                <div className="w-32 h-32 rounded-full border-2 border-gray-200 shadow-sm overflow-hidden bg-white">
                   <img
                     src={profile.profileImage}
                     alt={profile.fullName}
@@ -181,30 +146,33 @@ const handleDownloadVCard = async () => {
               </div>
             )}
 
-            {/* Name and Title - Sophisticated Typography */}
+            {/* Name and Title */}
             <div className="text-center mb-8">
               <h1 className="text-2xl font-semibold text-gray-900 mb-1.5 tracking-tight">
                 {profile.fullName}
               </h1>
               {profile.designation && (
-                <p className={`text-base ${theme.primaryText} font-medium mb-0.5`}>{profile.designation}</p>
+                <p className="text-base font-medium mb-0.5" style={{ color: colors.primary }}>
+                  {profile.designation}
+                </p>
               )}
               {profile.company && (
                 <p className="text-sm text-gray-600 font-normal">{profile.company}</p>
               )}
             </div>
 
-            {/* Bio - Clean & Minimal */}
+            {/* Bio */}
             {profile.bio && (
               <div className="mb-8">
-                <div className={`bg-gray-50 rounded-lg p-5 border ${theme.bioBorder}`}>
+                <div className="bg-gray-50 rounded-lg p-5 border border-gray-200">
                   <p className="text-sm text-gray-700 leading-relaxed text-left whitespace-pre-line">
                     {displayBio}
                   </p>
                   {needsReadMore && (
                     <button
                       onClick={() => setBioExpanded(!bioExpanded)}
-                      className={`mt-3 ${theme.primaryText} text-sm font-medium flex items-center gap-1 hover:opacity-70 transition-opacity`}
+                      className="mt-3 text-sm font-medium flex items-center gap-1 hover:opacity-70 transition-opacity"
+                      style={{ color: colors.primary }}
                     >
                       {bioExpanded ? (
                         <>
@@ -221,14 +189,14 @@ const handleDownloadVCard = async () => {
               </div>
             )}
 
-            {/* Contact Information - Refined & Professional */}
+            {/* Contact Information */}
             <div className="space-y-2.5 mb-8">
               {profile.phone && (
                 <a 
                   href={`tel:${profile.phone}`}
-                  className={`flex items-center gap-3 p-3.5 rounded-lg ${theme.contactHover} transition-colors border border-gray-200`}
+                  className="flex items-center gap-3 p-3.5 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
                 >
-                  <div className={`${theme.contactIcon} p-2 rounded-md`}>
+                  <div className="p-2 rounded-md" style={{ backgroundColor: colors.primary }}>
                     <Phone className="w-4 h-4 text-white" />
                   </div>
                   <span className="text-sm text-gray-700 font-medium">{formatPhoneDisplay(profile.phone)}</span>
@@ -238,9 +206,9 @@ const handleDownloadVCard = async () => {
               {profile.email && (
                 <a 
                   href={`mailto:${profile.email}`}
-                  className={`flex items-center gap-3 p-3.5 rounded-lg ${theme.contactHover} transition-colors border border-gray-200`}
+                  className="flex items-center gap-3 p-3.5 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
                 >
-                  <div className={`${theme.contactIcon2} p-2 rounded-md`}>
+                  <div className="p-2 rounded-md" style={{ backgroundColor: colors.secondary }}>
                     <Mail className="w-4 h-4 text-white" />
                   </div>
                   <span className="text-sm text-gray-700 font-medium">{profile.email}</span>
@@ -252,9 +220,9 @@ const handleDownloadVCard = async () => {
                   href={profile.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center gap-3 p-3.5 rounded-lg ${theme.contactHover} transition-colors border border-gray-200`}
+                  className="flex items-center gap-3 p-3.5 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
                 >
-                  <div className={`${theme.contactIcon} p-2 rounded-md`}>
+                  <div className="p-2 rounded-md" style={{ backgroundColor: colors.primary }}>
                     <Globe className="w-4 h-4 text-white" />
                   </div>
                   <span className="text-sm text-gray-700 font-medium">Visit Website</span>
@@ -262,7 +230,7 @@ const handleDownloadVCard = async () => {
               )}
             </div>
 
-            {/* Social Links - Minimal & Professional */}
+            {/* Social Links */}
             {(profile.linkedin || profile.twitter || profile.instagram || profile.facebook) && (
               <div className="mb-8">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3 text-center">
@@ -320,15 +288,26 @@ const handleDownloadVCard = async () => {
               </div>
             )}
 
-            {/* Action Buttons - Executive Style */}
+            {/* Action Buttons - Dynamic Theme with INLINE STYLES */}
             <div className="space-y-2.5">
               <button
                 onClick={handleDownloadVCard}
-                disabled={isDownloading} // ADD THIS LINE
-                className={`w-full flex items-center justify-center gap-2 bg-gradient-to-r ${theme.buttonGradient} text-white py-3 px-6 rounded-lg font-medium text-sm ${theme.buttonHover} transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed`} // ADD disabled classes
+                disabled={isDownloading}
+                className="w-full flex items-center justify-center gap-2 text-white py-3 px-6 rounded-lg font-medium text-sm transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: `linear-gradient(to right, ${colors.primary}, ${colors.primaryDark})`,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isDownloading) {
+                    e.currentTarget.style.background = `linear-gradient(to right, ${colors.primaryDark}, ${colors.primaryDark})`;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = `linear-gradient(to right, ${colors.primary}, ${colors.primaryDark})`;
+                }}
               >
-                <Download className={`w-4 h-4 ${isDownloading ? 'animate-bounce' : ''}`} /> {/* ADD animation */}
-                {isDownloading ? 'Saving...' : 'Save Contact'} {/* CHANGE THIS LINE */}
+                <Download className={`w-4 h-4 ${isDownloading ? 'animate-bounce' : ''}`} />
+                {isDownloading ? 'Saving...' : 'Save Contact'}
               </button>
 
               {profile.phone && (
@@ -342,17 +321,19 @@ const handleDownloadVCard = async () => {
               )}
             </div>
 
-            {/* Footer - Subtle & Professional */}
-            <div className={`mt-10 pt-6 border-t ${theme.bioBorder} text-center`}>
+            {/* Footer - Dynamic Theme */}
+            <div className="mt-10 pt-6 border-t border-gray-200 text-center">
               <p className="text-xs text-gray-400 font-normal">
-                Powered by <span className={`${theme.primaryText} font-medium`}>{profile.company || 'Bharat Valley'}</span>
+                Powered by <span className="font-medium" style={{ color: colors.primary }}>
+                  {profile.company || 'Bharat Valley'}
+                </span>
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Success Modal - Refined */}
+      {/* Success Modal - Dynamic Theme */}
       {showModal && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 relative animate-fade-in">
@@ -374,28 +355,46 @@ const handleDownloadVCard = async () => {
               
               <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  <span className={`font-medium ${theme.primaryText}`}>Next:</span> Open the downloaded file and tap <span className="font-medium">&quot;Add to Contacts&quot;</span> to save.
+                  <span className="font-medium" style={{ color: colors.primary }}>Next:</span> Open the downloaded file and tap <span className="font-medium">&quot;Add to Contacts&quot;</span> to save.
                 </p>
               </div>
 
               <div className="space-y-2.5 text-sm text-gray-600 mb-6">
                 <div className="flex items-start gap-3">
-                  <div className={`w-6 h-6 ${theme.primaryBg} text-white rounded-full flex items-center justify-center font-medium text-xs flex-shrink-0 mt-0.5`}>1</div>
+                  <div 
+                    className="w-6 h-6 text-white rounded-full flex items-center justify-center font-medium text-xs flex-shrink-0 mt-0.5"
+                    style={{ backgroundColor: colors.primary }}
+                  >
+                    1
+                  </div>
                   <span className="text-left">Find <span className="font-medium text-gray-800">{downloadedFileName}</span></span>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className={`w-6 h-6 ${theme.primaryBg} text-white rounded-full flex items-center justify-center font-medium text-xs flex-shrink-0 mt-0.5`}>2</div>
+                  <div 
+                    className="w-6 h-6 text-white rounded-full flex items-center justify-center font-medium text-xs flex-shrink-0 mt-0.5"
+                    style={{ backgroundColor: colors.primary }}
+                  >
+                    2
+                  </div>
                   <span className="text-left">Tap to open the file</span>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className={`w-6 h-6 ${theme.contactIcon2} text-white rounded-full flex items-center justify-center font-medium text-xs flex-shrink-0 mt-0.5`}>3</div>
+                  <div 
+                    className="w-6 h-6 text-white rounded-full flex items-center justify-center font-medium text-xs flex-shrink-0 mt-0.5"
+                    style={{ backgroundColor: colors.secondary }}
+                  >
+                    3
+                  </div>
                   <span className="text-left">Select &quot;Add to Contacts&quot;</span>
                 </div>
               </div>
               
               <button
                 onClick={() => setShowModal(false)}
-                className={`w-full bg-gradient-to-r ${theme.buttonGradient} text-white py-3 rounded-lg font-medium text-sm ${theme.buttonHover} transition-all duration-200 shadow-sm`}
+                className="w-full text-white py-3 rounded-lg font-medium text-sm transition-all duration-200 shadow-sm"
+                style={{
+                  background: `linear-gradient(to right, ${colors.primary}, ${colors.primaryDark})`,
+                }}
               >
                 Got It
               </button>

@@ -1,13 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // app/dashboard/page.tsx
 'use client';
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import QRCode from 'qrcode';
 import { Download, ExternalLink, Edit, QrCode as QrCodeIcon } from 'lucide-react';
+import ThemeEditor from '@/components/ThemeEditor';
 
 interface Profile {
   slug: string;
@@ -15,49 +17,10 @@ interface Profile {
   designation?: string;
   company?: string;
   profileImage?: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
 }
-
-// Theme configurations for different companies
-const companyThemes = {
-  'Bharat Valley': {
-    logo: '/logo-bharat-valley.svg',
-    bgGradient: 'from-orange-50 to-green-50',
-    headerBorder: 'border-orange-200',
-    primaryColor: 'orange',
-    secondaryColor: 'green',
-    borderColor: 'border-orange-100',
-    primaryBg: 'bg-orange-500',
-    primaryBorder: 'border-orange-500',
-    primaryText: 'text-orange-600',
-    buttonGradient: 'from-orange-500 to-orange-600',
-    buttonHover: 'hover:from-orange-600 hover:to-orange-700',
-    qrBg: 'from-orange-50 to-green-50',
-    qrBorder: 'border-orange-300',
-    accentBorder: 'border-orange-200',
-    accentBg: 'from-orange-50 to-orange-100',
-    accentHover: 'hover:from-orange-100 hover:to-orange-200',
-    accentText: 'text-orange-700',
-  },
-  'Transformatrix': {
-    logo: '/tx-logo.png',
-    bgGradient: 'from-blue-50 to-green-50',
-    headerBorder: 'border-blue-200',
-    primaryColor: 'blue',
-    secondaryColor: 'green',
-    borderColor: 'border-blue-100',
-    primaryBg: 'bg-blue-600',
-    primaryBorder: 'border-blue-600',
-    primaryText: 'text-blue-600',
-    buttonGradient: 'from-blue-600 to-blue-700',
-    buttonHover: 'hover:from-blue-700 hover:to-blue-800',
-    qrBg: 'from-blue-50 to-green-50',
-    qrBorder: 'border-blue-300',
-    accentBorder: 'border-blue-200',
-    accentBg: 'from-blue-50 to-blue-100',
-    accentHover: 'hover:from-blue-100 hover:to-blue-200',
-    accentText: 'text-blue-700',
-  },
-};
 
 export default function DashboardPage() {
   const { user, loading, logout } = useAuth();
@@ -65,6 +28,9 @@ export default function DashboardPage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [qrCode, setQrCode] = useState<string>('');
   const [qrLoading, setQrLoading] = useState(true);
+  const [themeSaving, setThemeSaving] = useState(false);
+  const [themeSuccess, setThemeSuccess] = useState('');
+  const [themeError, setThemeError] = useState('');
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const finalCanvasRef = useRef<HTMLCanvasElement>(null);
   const router = useRouter();
@@ -93,6 +59,38 @@ export default function DashboardPage() {
 
     fetchProfile();
   }, [user]);
+
+  const handleThemeSave = async (logoUrl: string, primaryColor: string, secondaryColor: string) => {
+    if (!user) return;
+    
+    setThemeSaving(true);
+    setThemeError('');
+    setThemeSuccess('');
+    
+    try {
+      await updateDoc(doc(db, 'profiles', user.uid), {
+        logoUrl,
+        primaryColor,
+        secondaryColor,
+        updatedAt: new Date(),
+      });
+      
+      // Refresh profile
+      const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
+      if (profileDoc.exists()) {
+        setProfile(profileDoc.data() as Profile);
+      }
+      
+      setThemeSuccess('Theme updated successfully! Check your public profile to see changes.');
+      setTimeout(() => setThemeSuccess(''), 5000);
+    } catch (error: any) {
+      console.error('Error saving theme:', error);
+      setThemeError('Failed to save theme: ' + (error.message || 'Unknown error'));
+      setTimeout(() => setThemeError(''), 5000);
+    } finally {
+      setThemeSaving(false);
+    }
+  };
 
   useEffect(() => {
     const generateQRCode = async () => {
@@ -207,7 +205,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-green-50">
-      {/* Header */}
+      {/* Header - FIXED COLORS (Orange theme always) */}
       <header className="bg-white shadow-sm border-b-2 border-orange-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -236,55 +234,78 @@ export default function DashboardPage() {
           <p className="text-gray-600">Manage your digital visiting card</p>
         </div>
 
+        {/* Theme Messages */}
+        {themeSuccess && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+            {themeSuccess}
+          </div>
+        )}
+        {themeError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+            {themeError}
+          </div>
+        )}
+
         {profileLoading ? (
           <div className="bg-white rounded-2xl shadow-lg p-8 text-center border-2 border-orange-100">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading profile...</p>
           </div>
         ) : profile ? (
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Profile Card */}
-            <div className="lg:col-span-1 bg-white rounded-2xl shadow-lg p-6 border-2 border-orange-100">
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Your Profile</h3>
-                <Link
-                  href="/edit-profile"
-                  className="text-sm text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
-                >
-                  <Edit className="w-4 h-4" />
-                  Edit
-                </Link>
-              </div>
-              
-              <div className="space-y-3">
-                {profile.profileImage && (
-                  <img 
-                    src={profile.profileImage} 
-                    alt={profile.fullName}
-                    className="w-24 h-24 rounded-full object-cover mb-4 border-4 border-orange-500"
-                  />
-                )}
-                <div>
-                  <p className="text-sm text-gray-600">Name</p>
-                  <p className="font-medium text-gray-900">{profile.fullName}</p>
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* Profile Card */}
+              <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-orange-100">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Your Profile</h3>
+                  <Link
+                    href="/edit-profile"
+                    className="text-sm text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </Link>
                 </div>
-                {profile.designation && (
+                
+                <div className="space-y-3">
+                  {profile.profileImage && (
+                    <img 
+                      src={profile.profileImage} 
+                      alt={profile.fullName}
+                      className="w-24 h-24 rounded-full object-cover mb-4 border-4 border-orange-500"
+                    />
+                  )}
                   <div>
-                    <p className="text-sm text-gray-600">Designation</p>
-                    <p className="font-medium text-gray-900">{profile.designation}</p>
+                    <p className="text-sm text-gray-600">Name</p>
+                    <p className="font-medium text-gray-900">{profile.fullName}</p>
                   </div>
-                )}
-                {profile.company && (
-                  <div>
-                    <p className="text-sm text-gray-600">Company</p>
-                    <p className="font-medium text-gray-900">{profile.company}</p>
-                  </div>
-                )}
+                  {profile.designation && (
+                    <div>
+                      <p className="text-sm text-gray-600">Designation</p>
+                      <p className="font-medium text-gray-900">{profile.designation}</p>
+                    </div>
+                  )}
+                  {profile.company && (
+                    <div>
+                      <p className="text-sm text-gray-600">Company</p>
+                      <p className="font-medium text-gray-900">{profile.company}</p>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Theme Customization Card */}
+              <ThemeEditor
+                currentLogo={profile?.logoUrl}
+                currentPrimaryColor={profile?.primaryColor || 'orange'}
+                currentSecondaryColor={profile?.secondaryColor || 'green'}
+                onSave={handleThemeSave}
+              />
             </div>
 
-            {/* QR Code Card */}
-            <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6 border-2 border-orange-100">
+            {/* Right Column - QR Code Card */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-orange-100">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -295,7 +316,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               
-              <div className="flex flex-col md:flex-row gap-6 items-center">
+              <div className="flex flex-col gap-6 items-center">
                 {/* QR Code Display with Username */}
                 <div className="flex-shrink-0">
                   <div className="bg-white p-4 rounded-2xl border-2 border-orange-300 shadow-lg">
@@ -318,7 +339,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex-1 space-y-4">
+                <div className="w-full space-y-4">
                   <div className="bg-gradient-to-r from-orange-50 to-green-50 rounded-xl p-4 border border-orange-200">
                     <h4 className="font-semibold text-gray-900 mb-2">How to use:</h4>
                     <ul className="space-y-2 text-sm text-gray-700">
@@ -363,7 +384,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Quick Actions Card */}
-            <div className="lg:col-span-3 bg-white rounded-2xl shadow-lg p-6 border-2 border-orange-100">
+            <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6 border-2 border-orange-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
               <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
                 <Link
