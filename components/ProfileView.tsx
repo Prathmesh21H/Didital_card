@@ -78,10 +78,17 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
   // Determine theme based on company
   const theme = useMemo(() => {
     const company = profile.company || '';
-    if (company.toLowerCase().includes('transformatrix')) {
+    const companyLower = company.toLowerCase();
+    
+    if (companyLower.includes('transformatrix')) {
       return companyThemes['Transformatrix'];
     }
-    return companyThemes['Bharat Valley']; // Default theme
+    if (companyLower.includes('bharat valley')) {
+      return companyThemes['Bharat Valley'];
+    }
+    
+    // Default to Bharat Valley if no match
+    return companyThemes['Bharat Valley'];
   }, [profile.company]);
   
   // Check if bio needs "Read More"
@@ -127,6 +134,18 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
     
     // Open in new tab
     window.open(whatsappUrl, '_blank');
+  };
+
+  // Format phone number for display (remove country code)
+  const formatPhoneDisplay = (phone: string) => {
+    if (!phone) return '';
+    // Remove +91, +1, or any country code and spaces/dashes
+    const formatted = phone.replace(/^\+\d{1,3}/, '').replace(/[\s-]/g, '');
+    // Add spacing for readability: 98765 43210
+    if (formatted.length === 10) {
+      return `${formatted.slice(0, 5)} ${formatted.slice(5)}`;
+    }
+    return formatted;
   };
 
   return (
@@ -208,7 +227,7 @@ export default function ProfileView({ profile, userId }: ProfileViewProps) {
                   <div className={`${theme.contactIcon} p-2 rounded-md`}>
                     <Phone className="w-4 h-4 text-white" />
                   </div>
-                  <span className="text-sm text-gray-700 font-medium">{profile.phone}</span>
+                  <span className="text-sm text-gray-700 font-medium">{formatPhoneDisplay(profile.phone)}</span>
                 </a>
               )}
               
