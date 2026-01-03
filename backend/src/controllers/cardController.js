@@ -1,5 +1,5 @@
 import { CardModel } from "../models/cardModel.js";
-import { SubscriptionModel } from "../models/subscribtionModel.js";
+import { SubscriptionModel } from "../models/subscribtionModel.js"; // Ensure typo matches your file 'subscribtionModel.js'
 import { validateCardFeatures } from "../utils/cardFeatureGaurd.js";
 
 // --- HELPER: Remove undefined values ---
@@ -13,6 +13,8 @@ const cleanData = (obj) => {
 export const createCard = async (req, res) => {
   try {
     const uid = req.user.uid;
+
+    // 1. Get Subscription (Middleware has already checked the limit, but we need settings for validation)
     const subscription = await SubscriptionModel.findByUid(uid);
 
     if (!subscription) {
@@ -23,10 +25,14 @@ export const createCard = async (req, res) => {
 
     const cardData = cleanData(req.body);
 
+    // 2. Validate Feature usage (e.g. is this theme allowed on this plan?)
     const error = validateCardFeatures(subscription, cardData);
     if (error) return res.status(403).json({ message: error });
 
+    // 3. Create Card
     const card = await CardModel.create(uid, cardData);
+
+    // 4. Increment Count
     await SubscriptionModel.incrementCardCount(uid);
 
     res.status(201).json(card);
@@ -48,12 +54,9 @@ export const getMyCards = async (req, res) => {
   }
 };
 
-// --- NEW FUNCTION ADDED HERE ---
 /**
  * Fetch single card by ID (For Edit Page)
  */
-// src/controllers/cardController.js
-
 export const getCardById = async (req, res) => {
   try {
     const { cardId } = req.params;
@@ -65,7 +68,7 @@ export const getCardById = async (req, res) => {
       return res.status(404).json({ message: "Card not found" });
     }
 
-    // Ownership check (VERY IMPORTANT)
+    // Ownership check
     if (card.ownerUid !== uid) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -76,7 +79,6 @@ export const getCardById = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-// -------------------------------
 
 /**
  * Update card
@@ -101,15 +103,27 @@ export const updateCard = async (req, res) => {
 
 /**
  * Delete card
+ * UPDATE: Now decrements the card count
  */
 export const deleteCard = async (req, res) => {
   try {
-    const success = await CardModel.delete(req.params.cardId, req.user.uid);
+    const uid = req.user.uid;
+    const cardId = req.params.cardId;
 
-    if (!success) return res.status(404).json({ message: "Card not found" });
+    // 1. Attempt Delete
+    const success = await CardModel.delete(cardId, uid);
+
+    if (!success) {
+      return res.status(404).json({ message: "Card not found" });
+    }
+
+    // 2. Decrement Count on success
+    // This fixes the "Limit Reached" error after deleting items
+    await SubscriptionModel.decrementCardCount(uid);
 
     res.json({ deleted: true });
   } catch (err) {
+    console.error("Delete Card Error:", err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -122,8 +136,6 @@ export const getCardByLink = async (req, res) => {
     // With regex routes, the capture group is at index 0
     const cardLink = req.params[0];
 
-    console.log("Fetching public card:", cardLink); // Debug log
-
     if (!cardLink) {
       return res.status(404).json({ message: "No link provided" });
     }
@@ -134,7 +146,6 @@ export const getCardByLink = async (req, res) => {
       return res.status(404).json({ message: "Card not found" });
     }
 
-    // Return object structure expected by frontend
     res.json({ card });
   } catch (err) {
     console.error("Public Fetch Error:", err);

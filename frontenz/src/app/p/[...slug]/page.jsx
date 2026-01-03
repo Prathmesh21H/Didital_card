@@ -18,7 +18,6 @@ import {
 
 export default function PublicCardPage() {
   const params = useParams();
-
   const rawSlug = params?.slug;
   const cardLinkString = Array.isArray(rawSlug) ? rawSlug.join("/") : rawSlug;
 
@@ -32,27 +31,21 @@ export default function PublicCardPage() {
     const fetchCard = async () => {
       try {
         setLoading(true);
-
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-
         const response = await axios.get(
           `${API_URL}/cards/public/${cardLinkString}`
         );
-
-        // Handle response (your API returns { card: {...} })
         const cardData = response.data.card || response.data;
 
         if (!cardData) throw new Error("No data found");
 
-        // CHANGE: Apply defaults to ensure the page doesn't crash if new fields are missing
         setCard({
           ...cardData,
           banner: cardData.banner || { type: "color", value: "#2563eb" },
           layout: cardData.layout || "minimal",
           fontStyle: cardData.fontStyle || "basic",
         });
-
         setError(false);
       } catch (err) {
         console.error("Error fetching card:", err);
@@ -66,7 +59,6 @@ export default function PublicCardPage() {
   }, [cardLinkString]);
 
   // --- HELPERS ---
-
   const getAvatarUrl = () => {
     if (card?.profileUrl?.trim()) return card.profileUrl;
     return `https://api.dicebear.com/7.x/initials/svg?seed=${
@@ -74,47 +66,130 @@ export default function PublicCardPage() {
     }`;
   };
 
-  // --- KEY CHANGES FOR ALIGNMENT HERE ---
+  // --- BACKGROUND & TEXT COLOR LOGIC ---
+  const getStyles = () => {
+    if (!card) return { skin: {}, textClass: "text-slate-900" };
+
+    const skinValue = card.cardSkin;
+    let skinStyle = { backgroundColor: "#ffffff" }; // Default White
+    let textClass = "text-slate-900"; // Default Dark Text
+
+    if (skinValue) {
+      // Check if it looks like an image URL (contains http or /)
+      const isImage = skinValue.includes("http") || skinValue.includes("/");
+
+      if (isImage) {
+        skinStyle = {
+          backgroundImage: `url(${skinValue})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        };
+        // For images, we can't easily know brightness, so we might default to dark text
+        // or add a backdrop blur container to ensure readability.
+      } else {
+        // It is a color (Hex, RGB, or Name)
+        skinStyle = { backgroundColor: skinValue };
+
+        // Simple brightness check for Hex codes to set text color
+        if (skinValue.startsWith("#")) {
+          const hex = skinValue.replace("#", "");
+          const r = parseInt(hex.substring(0, 2), 16);
+          const g = parseInt(hex.substring(2, 4), 16);
+          const b = parseInt(hex.substring(4, 6), 16);
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+          // If brightness is low (dark background), use white text
+          if (brightness < 128) {
+            textClass = "text-white";
+          }
+        } else if (skinValue.toLowerCase() === "black") {
+          textClass = "text-white";
+        }
+      }
+    }
+
+    const bannerStyle =
+      card.banner?.type === "image" && card.banner.value?.startsWith("http")
+        ? {
+            backgroundImage: `url(${card.banner.value})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }
+        : { backgroundColor: card.banner?.value || "#2563eb" };
+
+    return { skinStyle, bannerStyle, textClass };
+  };
+
+  const { skinStyle, bannerStyle, textClass } = getStyles();
+
   const getLayoutClasses = () => {
     if (!card) return {};
-
-    // Common classes for robust alignment (ensures square shape and centered image/text)
-    const commonWrapperClasses =
-      "aspect-square flex items-center justify-center bg-slate-200 overflow-hidden border-4 border-white z-10";
-
     switch (card.layout) {
+      case "corporate":
+        return {
+          container: "flex flex-col md:flex-row min-h-screen text-left",
+          sidebar:
+            "bg-slate-800 w-full md:w-1/3 min-h-[300px] md:h-full relative flex flex-col items-center pt-10 text-white",
+          mainContent: "w-full md:w-2/3 h-full p-8 pt-12",
+          avatarWrapper:
+            "size-32 rounded-full border-4 border-white/20 mb-6 overflow-hidden bg-slate-200",
+          info: "mt-0",
+          links: "mt-8 space-y-4",
+        };
+      case "glass":
+        return {
+          container: `text-center min-h-screen relative z-10 flex flex-col items-center pt-20 ${
+            !card.cardSkin
+              ? "bg-gradient-to-br from-indigo-100 to-purple-100"
+              : ""
+          }`,
+          avatarWrapper:
+            "size-40 rounded-3xl border border-white/40 shadow-2xl backdrop-blur-md bg-white/20 mb-8 overflow-hidden",
+          info: "bg-white/30 backdrop-blur-xl rounded-3xl p-8 border border-white/50 shadow-xl mx-4 max-w-md w-full",
+          links: "mt-8 w-full space-y-4 pb-12",
+        };
+      case "elegant":
+        return {
+          // Pure transparent container
+          container: `text-center min-h-screen border-[12px] border-double ${
+            textClass.includes("white") ? "border-white/50" : "border-slate-800"
+          } m-0 md:m-6 flex flex-col`,
+          header: "h-64 relative flex items-end justify-center",
+          avatarWrapper: `absolute -bottom-16 left-1/2 transform -translate-x-1/2 size-40 border-2 ${
+            textClass.includes("white") ? "border-white" : "border-slate-800"
+          } bg-white p-2 shadow-sm z-20 rotate-45`,
+          innerAvatar: "w-full h-full object-cover -rotate-45",
+          info: "mt-24 px-8",
+          links: "mt-12 px-8 space-y-4 pb-12",
+        };
       case "modern":
         return {
-          container: "text-left",
-          headerWrapper: "relative",
-          // FIXED:
-          // 1. Changed to 'absolute' to prevent clipping at the top.
-          // 2. Used '-bottom-14' (3.5rem) to overlap the banner edge exactly halfway.
-          // 3. 'left-6' positions it to the left side.
-          avatarWrapper: `absolute -bottom-14 left-6 size-28 rounded-xl shadow-md ${commonWrapperClasses}`,
-
-          // FIXED: Increased margin-top to 'mt-20' so the name text isn't hidden behind the avatar.
-          info: "mt-20 px-6",
-          links: "mt-8 px-6 space-y-3 pb-8",
+          container: "text-left min-h-screen",
+          headerWrapper: "relative h-48",
+          avatarWrapper:
+            "absolute -bottom-14 left-8 size-36 rounded-2xl shadow-lg border-4 border-white bg-slate-200 overflow-hidden z-10",
+          info: "mt-24 px-8",
+          links: "mt-10 px-8 space-y-4 pb-12",
         };
-
       case "creative":
         return {
-          container: "text-center",
-          headerWrapper: "relative flex justify-center items-center",
-          avatarWrapper: `absolute -bottom-16 left-1/2 transform -translate-x-1/2 size-32 rounded-full shadow-xl border-white/50 backdrop-blur-sm ${commonWrapperClasses}`,
-          info: "mt-20 px-6",
-          links: "mt-8 px-6 space-y-3 pb-8",
+          container: "text-center min-h-screen",
+          headerWrapper: "relative h-56 flex justify-center items-center",
+          avatarWrapper:
+            "absolute -bottom-20 left-1/2 transform -translate-x-1/2 size-40 rounded-full shadow-2xl border-4 border-white/50 backdrop-blur-sm bg-slate-200 overflow-hidden z-10",
+          info: "mt-28 px-8",
+          links: "mt-10 px-8 space-y-4 pb-12",
         };
-
       case "minimal":
       default:
         return {
-          container: "text-center",
-          headerWrapper: "relative",
-          avatarWrapper: `absolute -bottom-12 left-1/2 transform -translate-x-1/2 size-28 rounded-full shadow-md ${commonWrapperClasses}`,
-          info: "mt-16 px-6",
-          links: "mt-8 px-6 space-y-3 pb-8",
+          container: "text-center min-h-screen",
+          headerWrapper: "relative h-40",
+          avatarWrapper:
+            "absolute -bottom-16 left-1/2 transform -translate-x-1/2 size-32 rounded-full shadow-lg border-4 border-white bg-slate-200 overflow-hidden",
+          info: "mt-24 px-8",
+          links: "mt-10 px-8 space-y-4 pb-12",
         };
     }
   };
@@ -125,46 +200,25 @@ export default function PublicCardPage() {
         return "font-serif";
       case "mono":
         return "font-mono";
+      case "script":
+        return "font-serif italic";
+      case "wide":
+        return "font-sans tracking-widest uppercase";
+      case "bold":
+        return "font-sans font-black";
       default:
         return "font-sans";
     }
   };
 
-  const bannerStyle =
-    card?.banner?.type === "image"
-      ? {
-          backgroundImage: `url(${card.banner.value})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }
-      : { backgroundColor: card?.banner?.value || "#2563eb" };
-
-  const skinStyle = card?.cardSkin
-    ? card.cardSkin.startsWith("#")
-      ? { backgroundColor: card.cardSkin }
-      : {
-          backgroundImage: `url(${card.cardSkin})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundAttachment: "fixed",
-        }
-    : { backgroundColor: "#F3F4F6" };
-
-  // --- ACTIONS ---
   const handleSaveContact = () => {
-    if (!card) return;
-    const vCardData = `BEGIN:VCARD
-VERSION:3.0
-FN:${card.fullName}
-N:${card.fullName};;;;
-ORG:${card.company || ""}
-TITLE:${card.designation || ""}
-TEL;TYPE=CELL:${card.phone || ""}
-EMAIL:${card.email || ""}
-URL:${card.website || ""}
-NOTE:${card.bio || "Connected via Nexcard"}
-END:VCARD`;
-
+    const vCardData = `BEGIN:VCARD\nVERSION:3.0\nFN:${card.fullName}\nORG:${
+      card.company || ""
+    }\nTITLE:${card.designation || ""}\nTEL;TYPE=CELL:${
+      card.phone || ""
+    }\nEMAIL:${card.email || ""}\nURL:${card.website || ""}\nNOTE:${
+      card.bio || "Connected via Nexcard"
+    }\nEND:VCARD`;
     const blob = new Blob([vCardData], { type: "text/vcard" });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -175,270 +229,464 @@ END:VCARD`;
     document.body.removeChild(link);
   };
 
-  // --- LOADING / ERROR STATES ---
-  if (loading) {
+  if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
       </div>
     );
-  }
-
-  if (error || !card) {
+  if (error || !card)
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full">
-          <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <UserPlus size={32} />
-          </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
-            Card Not Found
-          </h2>
-          <p className="text-gray-500 mb-6">
-            The digital card you are looking for does not exist.
-          </p>
-          <a
-            href="/"
-            className="bg-blue-600 text-white px-6 py-2 rounded-full font-medium hover:bg-blue-700 transition"
-          >
-            Create Your Own
-          </a>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        Card Not Found
       </div>
     );
-  }
 
   const layout = getLayoutClasses();
   const fontFamily = getFontFamily();
 
   return (
     <div
-      className={`min-h-screen flex justify-center py-0 md:py-10 transition-colors duration-500 ${fontFamily}`}
+      className={`min-h-screen transition-colors duration-500 ${fontFamily} ${textClass}`}
       style={skinStyle}
     >
       <div
-        className={`w-full max-w-md md:rounded-[2.5rem] shadow-2xl overflow-hidden min-h-screen md:min-h-[800px] flex flex-col relative transition-all duration-300
-        ${
-          card.layout === "creative"
-            ? "bg-white/90 backdrop-blur-sm"
-            : "bg-white"
-        }
-        ${card.cardSkin ? "bg-opacity-95" : ""}
-      `}
+        className={`w-full max-w-xl mx-auto shadow-2xl overflow-hidden min-h-screen flex flex-col relative transition-all duration-300`}
       >
-        {/* HEADER / BANNER */}
-        <div
-          className={`w-full relative transition-all duration-300 ${
-            card.layout === "creative" ? "h-64" : "h-40"
-          } ${layout.headerWrapper}`}
-          style={bannerStyle}
-        >
-          {card.banner?.type === "image" && (
-            <div className="absolute inset-0 bg-black/10"></div>
-          )}
-
-          {/* AVATAR WRAPPER */}
-          <div className={layout.avatarWrapper}>
-            <img
-              src={getAvatarUrl()}
-              alt={card.fullName}
-              // Added 'block' to ensure no inline spacing issues
-              className="w-full h-full object-cover block"
-            />
-          </div>
-        </div>
-
-        {/* PROFILE INFO */}
-        <div className={`${layout.container} ${layout.info} relative`}>
-          <h1 className="text-2xl font-bold text-slate-900 leading-tight">
-            {card.fullName}
-          </h1>
-          <p className="text-blue-600 font-medium text-lg mt-1">
-            {card.designation}
-          </p>
-          <p className="text-slate-500 text-sm font-medium">{card.company}</p>
-
-          {card.bio && (
-            <p className="text-slate-600 text-sm leading-relaxed mt-6 bg-slate-50/80 p-4 rounded-xl border border-slate-100">
-              {card.bio}
-            </p>
-          )}
-        </div>
-
-        {/* LINKS SECTION */}
-        <div className={layout.links}>
-          {/* Phone */}
-          {card.phone && (
-            <a
-              href={`tel:${card.phone}`}
-              className="flex items-center p-3.5 bg-white/60 border border-slate-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-all cursor-pointer shadow-sm group"
-            >
-              <div className="size-10 rounded-full bg-blue-100/50 flex items-center justify-center text-blue-600 mr-4 group-hover:scale-110 transition-transform">
-                <Phone size={20} />
+        {/* --- CORPORATE LAYOUT --- */}
+        {card.layout === "corporate" ? (
+          <div className={layout.container}>
+            <div className={layout.sidebar} style={bannerStyle}>
+              <div className={layout.avatarWrapper}>
+                <img
+                  src={getAvatarUrl()}
+                  alt="Avatar"
+                  className="h-full w-full object-cover"
+                />
               </div>
-              <div className="text-left overflow-hidden">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
-                  Phone
+              <div className="px-6 text-center text-white/90">
+                <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-2">
+                  Scan
                 </p>
-                <p className="text-base font-bold text-slate-800 truncate">
-                  {card.phone}
-                </p>
+                <div className="size-24 bg-white/10 p-2 mx-auto rounded-xl border border-white/20 flex items-center justify-center backdrop-blur-sm">
+                  <div className="size-full bg-white flex items-center justify-center text-[10px] text-slate-900 font-bold">
+                    QR CODE
+                  </div>
+                </div>
               </div>
-            </a>
-          )}
-
-          {/* Email */}
-          {card.email && (
-            <a
-              href={`mailto:${card.email}`}
-              className="flex items-center p-3.5 bg-white/60 border border-slate-200 rounded-xl hover:bg-red-50 hover:border-red-200 transition-all cursor-pointer shadow-sm group"
-            >
-              <div className="size-10 rounded-full bg-red-100/50 flex items-center justify-center text-red-600 mr-4 group-hover:scale-110 transition-transform">
-                <Mail size={20} />
-              </div>
-              <div className="text-left overflow-hidden">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
-                  Email
-                </p>
-                <p className="text-base font-bold text-slate-800 truncate">
-                  {card.email}
-                </p>
-              </div>
-            </a>
-          )}
-
-          {/* Website */}
-          {card.website && (
-            <a
-              href={
-                card.website.startsWith("http")
-                  ? card.website
-                  : `https://${card.website}`
-              }
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center p-3.5 bg-white/60 border border-slate-200 rounded-xl hover:bg-purple-50 hover:border-purple-200 transition-all cursor-pointer shadow-sm group"
-            >
-              <div className="size-10 rounded-full bg-purple-100/50 flex items-center justify-center text-purple-600 mr-4 group-hover:scale-110 transition-transform">
-                <Globe size={20} />
-              </div>
-              <div className="text-left overflow-hidden">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
-                  Website
-                </p>
-                <p className="text-base font-bold text-slate-800 truncate">
-                  {card.website}
-                </p>
-              </div>
-            </a>
-          )}
-
-          {/* LinkedIn */}
-          {card.linkedin && (
-            <a
-              href={
-                card.linkedin.startsWith("http")
-                  ? card.linkedin
-                  : `https://${card.linkedin}`
-              }
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center p-3.5 bg-white/60 border border-slate-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-all cursor-pointer shadow-sm group"
-            >
-              <div className="size-10 rounded-full bg-[#0077b5]/10 flex items-center justify-center text-[#0077b5] mr-4 group-hover:scale-110 transition-transform">
-                <Linkedin size={20} />
-              </div>
-              <div className="text-left overflow-hidden">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
-                  LinkedIn
-                </p>
-                <p className="text-base font-bold text-slate-800 truncate">
-                  Connect on LinkedIn
-                </p>
-              </div>
-            </a>
-          )}
-
-          {/* Location */}
-          <div className="flex items-center p-3.5 bg-white/60 border border-slate-200 rounded-xl shadow-sm">
-            <div className="size-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-4">
-              <MapPin size={20} />
             </div>
-            <div className="text-left">
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
-                Location
+            <div className={layout.mainContent}>
+              <h1 className={`text-3xl font-bold leading-tight ${textClass}`}>
+                {card.fullName}
+              </h1>
+              <p className="text-blue-600 font-medium text-lg mt-2 mb-6">
+                {card.designation}
               </p>
-              <p className="text-base font-bold text-slate-800">Mumbai, IN</p>
+              <div className="w-16 h-1.5 bg-slate-200 mb-6 rounded-full"></div>
+              <p
+                className={`text-sm leading-relaxed mb-10 ${
+                  textClass === "text-white"
+                    ? "text-white/80"
+                    : "text-slate-500"
+                }`}
+              >
+                {card.bio}
+              </p>
+              <div className="space-y-4">
+                {card.phone && (
+                  <ContactRow
+                    icon={<Phone size={18} />}
+                    label="Mobile"
+                    value={card.phone}
+                    onClick={() => window.open(`tel:${card.phone}`)}
+                    textColor={textClass}
+                  />
+                )}
+                {card.email && (
+                  <ContactRow
+                    icon={<Mail size={18} />}
+                    label="Email"
+                    value={card.email}
+                    onClick={() => window.open(`mailto:${card.email}`)}
+                    textColor={textClass}
+                  />
+                )}
+                {card.website && (
+                  <ContactRow
+                    icon={<Globe size={18} />}
+                    label="Website"
+                    value={card.website}
+                    onClick={() =>
+                      window.open(
+                        card.website.startsWith("http")
+                          ? card.website
+                          : `https://${card.website}`
+                      )
+                    }
+                    textColor={textClass}
+                  />
+                )}
+              </div>
+              <div className="mt-10">
+                <SaveBtn
+                  onClick={handleSaveContact}
+                  color={
+                    card.banner?.type === "color"
+                      ? card.banner.value
+                      : "#1e293b"
+                  }
+                />
+              </div>
+              <SocialsRow
+                card={card}
+                className="justify-center md:justify-start mt-8"
+              />
             </div>
           </div>
-
-          {/* SAVE CONTACT */}
-          <div className="pt-4">
-            <button
-              onClick={handleSaveContact}
-              style={{
-                backgroundColor:
-                  card.banner?.type === "color" ? card.banner.value : "#2563EB",
-                backgroundImage:
-                  card.banner?.type === "image"
-                    ? `url(${card.banner.value})`
-                    : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-              className="w-full py-4 rounded-xl text-white font-bold shadow-lg hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 relative overflow-hidden group"
-            >
-              {card.banner?.type === "image" && (
-                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors"></div>
+        ) : card.layout === "glass" ? (
+          /* --- GLASS LAYOUT --- */
+          <div className={layout.container}>
+            {/* If user selected a color skin, we don't need blur overlay, just the color. 
+                 If user selected an IMAGE skin, we add blur. */}
+            {card.cardSkin &&
+              (card.cardSkin.includes("http") ||
+                card.cardSkin.includes("/")) && (
+                <div className="absolute inset-0 bg-white/20 backdrop-blur-sm z-0"></div>
               )}
-              <span className="relative z-10 flex items-center gap-2">
-                <UserPlus size={20} /> Save Contact
-              </span>
-            </button>
-          </div>
-        </div>
 
-        {/* SOCIAL LINKS */}
-        <div className="mt-auto px-6 pb-12">
-          <div className="flex justify-center gap-5 flex-wrap">
-            {card.twitter && (
-              <SocialIcon
-                href={card.twitter}
-                icon={<Twitter size={20} />}
-                color="bg-[#1DA1F2]"
-              />
-            )}
-            {card.instagram && (
-              <SocialIcon
-                href={card.instagram}
-                icon={<Instagram size={20} />}
-                color="bg-[#E1306C]"
-              />
-            )}
-            {card.facebook && (
-              <SocialIcon
-                href={card.facebook}
-                icon={<Facebook size={20} />}
-                color="bg-[#4267B2]"
-              />
-            )}
-          </div>
+            <div className="relative z-10 w-full flex flex-col items-center">
+              <div className={layout.avatarWrapper}>
+                <img
+                  src={getAvatarUrl()}
+                  alt="Avatar"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className={layout.info}>
+                <h1 className="text-3xl font-bold text-slate-900">
+                  {card.fullName}
+                </h1>
+                <p className="text-lg font-medium text-slate-600 mb-4">
+                  {card.designation}
+                </p>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  {card.bio}
+                </p>
+              </div>
+              <div className={layout.links}>
+                {card.phone && (
+                  <GlassLink
+                    icon={<Phone size={20} />}
+                    value={card.phone}
+                    label="Phone"
+                    onClick={() => window.open(`tel:${card.phone}`)}
+                  />
+                )}
+                {card.email && (
+                  <GlassLink
+                    icon={<Mail size={20} />}
+                    value={card.email}
+                    label="Email"
+                    onClick={() => window.open(`mailto:${card.email}`)}
+                  />
+                )}
+                {card.website && (
+                  <GlassLink
+                    icon={<Globe size={20} />}
+                    value={card.website}
+                    label="Website"
+                    onClick={() =>
+                      window.open(
+                        card.website.startsWith("http")
+                          ? card.website
+                          : `https://${card.website}`
+                      )
+                    }
+                  />
+                )}
 
-          <div className="text-center mt-10 border-t border-slate-200/60 pt-6">
-            <a
-              href="/"
-              className="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest"
-            >
-              Powered by Nexcard
-            </a>
+                <div className="pt-6 px-4">
+                  <SaveBtn
+                    onClick={handleSaveContact}
+                    color="#334155"
+                    glass={true}
+                  />
+                </div>
+                <SocialsRow card={card} className="justify-center mt-6" />
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* --- STANDARD & ELEGANT LAYOUTS --- */
+          <div className={layout.container}>
+            {card.layout !== "elegant" && (
+              <div
+                className={`${layout.headerWrapper} w-full transition-all duration-300`}
+                style={bannerStyle}
+              >
+                {card.banner?.type === "image" && (
+                  <div className="absolute inset-0 bg-black/10"></div>
+                )}
+                <div className={layout.avatarWrapper}>
+                  <img
+                    src={getAvatarUrl()}
+                    alt="Avatar"
+                    className="h-full w-full object-cover block"
+                  />
+                </div>
+              </div>
+            )}
+
+            {card.layout === "elegant" && (
+              <>
+                <div className={layout.header} style={bannerStyle}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent opacity-80"></div>
+                </div>
+                <div className="relative w-full">
+                  <div className={layout.avatarWrapper}>
+                    <div className={layout.innerAvatar}>
+                      <img
+                        src={getAvatarUrl()}
+                        alt="Avatar"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className={layout.info}>
+              <h1 className={`text-3xl font-bold leading-tight ${textClass}`}>
+                {card.fullName}
+              </h1>
+              <p
+                className={`font-medium text-xl mt-2 ${
+                  textClass === "text-white" ? "text-blue-300" : "text-blue-600"
+                }`}
+              >
+                {card.designation}
+              </p>
+              <p
+                className={`text-sm font-medium ${
+                  textClass === "text-white"
+                    ? "text-white/70"
+                    : "text-slate-500"
+                }`}
+              >
+                {card.company}
+              </p>
+              {card.bio && (
+                <p
+                  className={`text-sm leading-relaxed mt-6 p-6 rounded-2xl border ${
+                    textClass === "text-white"
+                      ? "bg-white/10 border-white/20 text-white/90"
+                      : "bg-slate-50/80 border-slate-100 text-slate-600"
+                  }`}
+                >
+                  {card.bio}
+                </p>
+              )}
+            </div>
+
+            <div className={layout.links}>
+              {card.phone && (
+                <StandardLink
+                  icon={<Phone size={20} />}
+                  label="Phone"
+                  value={card.phone}
+                  href={`tel:${card.phone}`}
+                  color="text-blue-600"
+                  bg="bg-blue-50"
+                  border="hover:border-blue-200"
+                />
+              )}
+              {card.email && (
+                <StandardLink
+                  icon={<Mail size={20} />}
+                  label="Email"
+                  value={card.email}
+                  href={`mailto:${card.email}`}
+                  color="text-red-600"
+                  bg="bg-red-50"
+                  border="hover:border-red-200"
+                />
+              )}
+              {card.website && (
+                <StandardLink
+                  icon={<Globe size={20} />}
+                  label="Website"
+                  value={card.website}
+                  href={
+                    card.website.startsWith("http")
+                      ? card.website
+                      : `https://${card.website}`
+                  }
+                  color="text-purple-600"
+                  bg="bg-purple-50"
+                  border="hover:border-purple-200"
+                />
+              )}
+              {card.linkedin && (
+                <StandardLink
+                  icon={<Linkedin size={20} />}
+                  label="LinkedIn"
+                  value="Connect"
+                  href={
+                    card.linkedin.startsWith("http")
+                      ? card.linkedin
+                      : `https://${card.linkedin}`
+                  }
+                  color="text-[#0077b5]"
+                  bg="bg-[#0077b5]/10"
+                  border="hover:border-blue-200"
+                />
+              )}
+
+              <div className="pt-6">
+                <SaveBtn
+                  onClick={handleSaveContact}
+                  color={
+                    card.banner?.type === "color"
+                      ? card.banner.value
+                      : "#2563EB"
+                  }
+                  bannerImage={
+                    card.banner?.type === "image" ? card.banner.value : null
+                  }
+                />
+              </div>
+              <SocialsRow card={card} className="justify-center mt-10 pb-8" />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// Social Icon Helper
+// --- SUB COMPONENTS ---
+
+const SaveBtn = ({ onClick, color, glass, bannerImage }) => (
+  <button
+    onClick={onClick}
+    style={{
+      backgroundColor: glass ? "rgba(30,41,59,0.9)" : color,
+      backgroundImage: bannerImage ? `url(${bannerImage})` : "none",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+    }}
+    className={`w-full py-4 rounded-xl text-white font-bold shadow-xl hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-3 relative overflow-hidden group ${
+      glass ? "backdrop-blur-md border border-white/20" : ""
+    }`}
+  >
+    {bannerImage && (
+      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors"></div>
+    )}
+    <span className="relative z-10 flex items-center gap-2">
+      <UserPlus size={20} /> Save Contact
+    </span>
+  </button>
+);
+
+const ContactRow = ({ icon, label, value, onClick, textColor }) => (
+  <div
+    onClick={onClick}
+    className="flex items-center gap-4 p-3 hover:bg-white/10 rounded-xl cursor-pointer transition-colors group"
+  >
+    <div
+      className={`transition-colors ${
+        textColor === "text-white"
+          ? "text-white/70 group-hover:text-white"
+          : "text-slate-400 group-hover:text-blue-600"
+      }`}
+    >
+      {icon}
+    </div>
+    <div className="text-sm truncate w-full">
+      <span
+        className={`font-bold block text-xs uppercase tracking-wide opacity-70 ${textColor}`}
+      >
+        {label}
+      </span>
+      <span className={`font-medium truncate block ${textColor}`}>{value}</span>
+    </div>
+  </div>
+);
+
+const GlassLink = ({ icon, value, label, onClick }) => (
+  <div
+    onClick={onClick}
+    className="flex items-center p-4 bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl shadow-sm hover:bg-white/60 transition-all cursor-pointer mx-4 mb-3"
+  >
+    <div className="size-10 rounded-full bg-white/60 flex items-center justify-center text-slate-700 mr-4 shrink-0">
+      {icon}
+    </div>
+    <div className="text-left overflow-hidden min-w-0">
+      <p className="text-[10px] text-slate-600 uppercase font-bold opacity-70">
+        {label}
+      </p>
+      <p className="text-sm font-semibold text-slate-900 truncate">{value}</p>
+    </div>
+  </div>
+);
+
+const SimpleIconLink = ({ icon, onClick }) => (
+  <button
+    onClick={onClick}
+    className="flex items-center justify-center p-4 border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition shadow-sm"
+  >
+    {icon}
+  </button>
+);
+
+const StandardLink = ({ icon, label, value, href, color, bg, border }) => (
+  <a
+    href={href}
+    target="_blank"
+    rel="noreferrer"
+    className={`flex items-center p-4 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-2xl hover:bg-white ${border} transition-all cursor-pointer shadow-sm group mb-3`}
+  >
+    <div
+      className={`size-12 rounded-full ${bg} flex items-center justify-center ${color} mr-4 group-hover:scale-110 transition-transform`}
+    >
+      {icon}
+    </div>
+    <div className="text-left overflow-hidden">
+      <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
+        {label}
+      </p>
+      <p className="text-base font-bold text-slate-800 truncate">{value}</p>
+    </div>
+  </a>
+);
+
+const SocialsRow = ({ card, className = "" }) => (
+  <div className={`flex gap-4 flex-wrap ${className}`}>
+    {card.twitter && (
+      <SocialIcon
+        href={card.twitter}
+        icon={<Twitter size={20} />}
+        color="bg-[#1DA1F2]"
+      />
+    )}
+    {card.instagram && (
+      <SocialIcon
+        href={card.instagram}
+        icon={<Instagram size={20} />}
+        color="bg-[#E1306C]"
+      />
+    )}
+    {card.facebook && (
+      <SocialIcon
+        href={card.facebook}
+        icon={<Facebook size={20} />}
+        color="bg-[#4267B2]"
+      />
+    )}
+  </div>
+);
+
 const SocialIcon = ({ href, icon, color }) => {
   const link = href.startsWith("http") ? href : `https://${href}`;
   return (

@@ -5,22 +5,29 @@ const checkCardLimit = async (req, res, next) => {
     const uid = req.user.uid;
     let sub = await SubscriptionModel.findByUid(uid);
 
-    // Create FREE subscription if not exists
     if (!sub) {
+      console.log(`No subscription found for ${uid}, creating FREE plan...`); // Debug Log
       sub = await SubscriptionModel.createFree(uid);
     }
 
-    // FREE plan is always active
+    // --- DEBUG LOGGING ---
+    console.log("Subscription Check:", {
+      uid: sub.uid,
+      plan: sub.plan,
+      created: sub.cardsCreated,
+      max: sub.maxCards,
+    });
+    // ---------------------
+
     const isActive = true;
 
     if (!isActive) {
-      return res
-        .status(403)
-        .json({ message: "Subscription is inactive or expired." });
+      return res.status(403).json({ message: "Subscription inactive." });
     }
 
-    // Check card limit
+    // Check limit
     if (sub.maxCards !== "unlimited" && sub.cardsCreated >= sub.maxCards) {
+      console.log("403 Forbidden: Limit reached"); // Debug Log
       return res.status(403).json({
         message: `Card limit reached (${sub.cardsCreated}/${sub.maxCards}). Upgrade to create more.`,
       });

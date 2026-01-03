@@ -241,7 +241,7 @@ const Dashboard = () => {
           setIsCardsLoading(false);
         }
       } else {
-        router.push("/login");
+        router.push("/");
       }
     });
 

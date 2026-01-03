@@ -41,7 +41,7 @@ export const CardModel = {
     const snap = await db
       .collection(COLLECTION)
       .where("cardLink", "==", cardLink)
-      .limit(1)
+      .limit(5)
       .get();
 
     return snap.empty ? null : snap.docs[0].data();

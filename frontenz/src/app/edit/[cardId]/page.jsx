@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase"; // Using initialized auth instance
+import { auth } from "@/lib/firebase";
 import { cardAPI, setAuthToken } from "@/lib/api";
 import { CardPreview } from "@/components/CardPreview";
 import {
@@ -14,6 +14,7 @@ import {
   User,
   Palette,
   Trash2,
+  Share2,
 } from "lucide-react";
 
 export default function EditCardPage() {
@@ -27,7 +28,7 @@ export default function EditCardPage() {
     bio: "",
     profileUrl: "",
     banner: { type: "color", value: "" },
-    cardSkin: null,
+    cardSkin: "",
     layout: "",
     fontStyle: "",
     phone: "",
@@ -45,6 +46,20 @@ export default function EditCardPage() {
   const [error, setError] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // --- FONT OPTIONS CONFIGURATION ---
+  const fontOptions = [
+    { id: "basic", label: "Basic", class: "font-sans" },
+    { id: "serif", label: "Serif", class: "font-serif" },
+    { id: "mono", label: "Mono", class: "font-mono" },
+    { id: "script", label: "Script", class: "font-serif italic" },
+    {
+      id: "wide",
+      label: "Wide",
+      class: "font-sans tracking-widest uppercase text-[10px]",
+    },
+    { id: "bold", label: "Bold", class: "font-sans font-black" },
+  ];
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -64,8 +79,8 @@ export default function EditCardPage() {
       const data = await cardAPI.getCardById(cardId);
       setForm({
         ...data,
-        // Ensure nested objects like banner have defaults if missing
         banner: data.banner || { type: "color", value: "#2563eb" },
+        layout: data.layout || "minimal", // Default to minimal if new card
       });
     } catch (err) {
       console.error(err);
@@ -100,7 +115,7 @@ export default function EditCardPage() {
       await cardAPI.deleteCard(cardId);
       router.push("/dashboard");
     } catch (err) {
-      setError("Failed to delete card. Please try again.");
+      setError("Failed to delete card.");
       setShowDeleteConfirm(false);
     } finally {
       setDeleting(false);
@@ -111,44 +126,37 @@ export default function EditCardPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
         <Loader2 className="animate-spin text-blue-600 mb-4" size={40} />
-        <p className="text-slate-500 font-medium">
-          Loading your card design...
-        </p>
+        <p className="text-slate-500 font-medium">Loading...</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Delete Confirmation Modal */}
+      {/* Delete Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-red-600">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl">
+            <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-red-600 mx-auto">
               <AlertTriangle size={32} />
             </div>
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">
+            <h3 className="text-2xl font-bold text-slate-900 mb-2 text-center">
               Delete Card?
             </h3>
-            <p className="text-slate-500 mb-8">
-              This action cannot be undone. Your public link will stop working
-              and all data for this card will be permanently removed.
+            <p className="text-slate-500 mb-8 text-center">
+              This action cannot be undone.
             </p>
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold"
               >
-                {deleting ? (
-                  <Loader2 className="animate-spin" size={20} />
-                ) : (
-                  "Yes, Delete Card"
-                )}
+                {deleting ? "Deleting..." : "Yes, Delete Card"}
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold hover:bg-slate-200 transition-colors"
+                className="w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold"
               >
                 Cancel
               </button>
@@ -167,336 +175,369 @@ export default function EditCardPage() {
             <ArrowLeft size={20} />{" "}
             <span className="hidden sm:inline">Back</span>
           </button>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-2xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg shadow-blue-200"
-            >
-              {saving ? (
-                <Loader2 className="animate-spin" size={18} />
-              ) : (
-                <Save size={18} />
-              )}
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
+          >
+            {saving ? (
+              <Loader2 className="animate-spin" size={18} />
+            ) : (
+              <Save size={18} />
+            )}{" "}
+            {saving ? "Saving..." : "Save"}
+          </button>
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 lg:p-8 flex flex-col lg:flex-row gap-10">
-        {/* Editor Panel */}
-        <div className="w-full lg:w-3/5 space-y-6">
-          <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-            <div className="flex border-b border-slate-100 bg-slate-50/50">
-              <button
-                onClick={() => setActiveTab("content")}
-                className={`flex-1 flex items-center justify-center gap-2 py-5 text-sm font-bold transition-all border-b-2 ${
-                  activeTab === "content"
-                    ? "border-blue-600 text-blue-600 bg-white"
-                    : "border-transparent text-slate-400"
-                }`}
-              >
-                <User size={18} /> Content
-              </button>
-              <button
-                onClick={() => setActiveTab("design")}
-                className={`flex-1 flex items-center justify-center gap-2 py-5 text-sm font-bold transition-all border-b-2 ${
-                  activeTab === "design"
-                    ? "border-blue-600 text-blue-600 bg-white"
-                    : "border-transparent text-slate-400"
-                }`}
-              >
-                <Palette size={18} /> Design
-              </button>
-            </div>
+        {/* Editor */}
+        <div className="w-full lg:w-3/5 bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden h-fit">
+          <div className="flex border-b border-slate-100 bg-slate-50/50">
+            <button
+              onClick={() => setActiveTab("content")}
+              className={`flex-1 py-5 text-sm font-bold flex justify-center gap-2 transition-all ${
+                activeTab === "content"
+                  ? "border-b-2 border-blue-600 text-blue-600 bg-white"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <User size={18} /> Content
+            </button>
+            <button
+              onClick={() => setActiveTab("design")}
+              className={`flex-1 py-5 text-sm font-bold flex justify-center gap-2 transition-all ${
+                activeTab === "design"
+                  ? "border-b-2 border-blue-600 text-blue-600 bg-white"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <Palette size={18} /> Design
+            </button>
+          </div>
 
-            <div className="p-8 lg:p-10">
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm">
-                  {error}
-                </div>
-              )}
+          <div className="p-8 lg:p-10">
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm">
+                {error}
+              </div>
+            )}
 
-              {activeTab === "content" ? (
-                // --- CONTENT TAB ---
-                <div className="space-y-8 animate-in fade-in duration-300">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {activeTab === "content" ? (
+              <div className="space-y-8 animate-in fade-in duration-300">
+                {/* Identity Section */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Input
+                    label="Full Name"
+                    name="fullName"
+                    value={form.fullName}
+                    onChange={handleChange}
+                  />
+                  <Input
+                    label="Designation"
+                    name="designation"
+                    value={form.designation}
+                    onChange={handleChange}
+                  />
+                  <Input
+                    label="Company"
+                    name="company"
+                    value={form.company}
+                    onChange={handleChange}
+                  />
+                  <Input
+                    label="Profile Image URL"
+                    name="profileUrl"
+                    value={form.profileUrl}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                {/* Bio Section */}
+                <div>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase ml-1 mb-1">
+                    About
+                  </label>
+                  <textarea
+                    name="bio"
+                    value={form.bio}
+                    onChange={handleChange}
+                    rows={4}
+                    className="w-full rounded-2xl border border-slate-200 p-4 outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all"
+                    placeholder="Tell people who you are..."
+                  />
+                </div>
+
+                {/* Contact Section */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Input
+                    label="Phone"
+                    name="phone"
+                    value={form.phone}
+                    onChange={handleChange}
+                  />
+                  <Input
+                    label="Email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                  />
+                  <Input
+                    label="Website"
+                    name="website"
+                    value={form.website}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                {/* --- NEW: SOCIAL MEDIA SECTION --- */}
+                <div>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase ml-1 mb-3 flex items-center gap-2">
+                    <Share2 size={12} /> Social Media Links
+                  </label>
+                  <div className="grid md:grid-cols-2 gap-4">
                     <Input
-                      label="Full Name"
-                      name="fullName"
-                      value={form.fullName}
+                      label="LinkedIn URL"
+                      name="linkedin"
+                      value={form.linkedin}
                       onChange={handleChange}
+                      placeholder="https://linkedin.com/in/..."
                     />
                     <Input
-                      label="Designation"
-                      name="designation"
-                      value={form.designation}
+                      label="Twitter (X) URL"
+                      name="twitter"
+                      value={form.twitter}
                       onChange={handleChange}
+                      placeholder="@username or url"
                     />
                     <Input
-                      label="Company"
-                      name="company"
-                      value={form.company}
+                      label="Instagram URL"
+                      name="instagram"
+                      value={form.instagram}
                       onChange={handleChange}
+                      placeholder="@username or url"
                     />
                     <Input
-                      label="Profile Image URL"
-                      name="profileUrl"
-                      value={form.profileUrl}
+                      label="Facebook URL"
+                      name="facebook"
+                      value={form.facebook}
                       onChange={handleChange}
-                    />
-                  </div>
-                  <div className="space-y-4">
-                    <label className="block text-[11px] font-black text-slate-400 uppercase ml-1">
-                      About
-                    </label>
-                    <textarea
-                      name="bio"
-                      value={form.bio}
-                      onChange={handleChange}
-                      rows={4}
-                      className="w-full rounded-2xl border border-slate-200 p-4 focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Phone"
-                      name="phone"
-                      value={form.phone}
-                      onChange={handleChange}
-                    />
-                    <Input
-                      label="Email"
-                      name="email"
-                      value={form.email}
-                      onChange={handleChange}
-                    />
-                    <Input
-                      label="Website"
-                      name="website"
-                      value={form.website}
-                      onChange={handleChange}
+                      placeholder="https://facebook.com/..."
                     />
                   </div>
                 </div>
-              ) : (
-                // --- DESIGN TAB ---
-                <div className="space-y-10 animate-in fade-in duration-300">
-                  {/* 1. Layout Selection */}
-                  <div className="space-y-4">
-                    <label className="block text-[11px] font-black text-slate-400 uppercase ml-1">
-                      Choose Layout
-                    </label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {["minimal", "modern", "creative"].map((layoutName) => (
-                        <button
-                          key={layoutName}
-                          onClick={() =>
-                            setForm({ ...form, layout: layoutName })
-                          }
-                          className={`relative p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group ${
-                            form.layout === layoutName
-                              ? "border-blue-600 bg-blue-50/50"
-                              : "border-slate-100 hover:border-blue-200 bg-white"
-                          }`}
-                        >
-                          {/* Visual Representation of Layouts */}
-                          <div className="w-full aspect-[4/3] bg-slate-100 rounded-lg overflow-hidden relative shadow-sm group-hover:shadow-md transition-all">
-                            {layoutName === "minimal" && (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-50">
-                                <div className="w-8 h-8 rounded-full bg-slate-400"></div>
-                                <div className="w-16 h-2 bg-slate-300 rounded-full"></div>
-                              </div>
-                            )}
-                            {layoutName === "modern" && (
-                              <div className="absolute inset-0 flex flex-col p-3 gap-2 opacity-50">
-                                <div className="w-full h-8 bg-slate-300 rounded-t-lg mb-[-10px]"></div>
-                                <div className="w-8 h-8 rounded-lg bg-slate-400 border-2 border-white z-10 ml-2"></div>
-                              </div>
-                            )}
-                            {layoutName === "creative" && (
-                              <div className="absolute inset-0 flex items-center justify-center opacity-50">
-                                <div className="w-full h-full bg-slate-200 flex items-center justify-center">
-                                  <div className="w-10 h-10 rounded-full border-4 border-white bg-slate-400 shadow-sm"></div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-xs font-bold capitalize text-slate-600">
-                            {layoutName}
-                          </span>
-                          {form.layout === layoutName && (
-                            <div className="absolute top-2 right-2 w-3 h-3 bg-blue-600 rounded-full"></div>
+              </div>
+            ) : (
+              <div className="space-y-10 animate-in fade-in duration-300">
+                {/* LAYOUT SELECTOR */}
+                <div>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase ml-1 mb-3">
+                    Choose Layout
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      "minimal",
+                      "modern",
+                      "creative",
+                      "corporate",
+                      "glass",
+                      "elegant",
+                    ].map((layoutName) => (
+                      <button
+                        key={layoutName}
+                        onClick={() => setForm({ ...form, layout: layoutName })}
+                        className={`relative p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group ${
+                          form.layout === layoutName
+                            ? "border-blue-600 bg-blue-50/50"
+                            : "border-slate-100 hover:border-blue-200 bg-white"
+                        }`}
+                      >
+                        <div className="w-full aspect-[4/3] bg-slate-100 rounded-lg overflow-hidden relative shadow-sm border border-slate-200/50">
+                          {/* Visual Logic for Mini Previews */}
+                          {layoutName === "minimal" && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-50">
+                              <div className="w-8 h-8 rounded-full bg-slate-400"></div>
+                              <div className="w-12 h-1.5 bg-slate-300 rounded-full"></div>
+                            </div>
                           )}
-                        </button>
-                      ))}
-                    </div>
+                          {layoutName === "modern" && (
+                            <div className="absolute inset-0 flex flex-col p-2 gap-2 opacity-50">
+                              <div className="w-full h-6 bg-slate-300 rounded-t-lg mb-[-10px]"></div>
+                              <div className="w-8 h-8 rounded-lg bg-slate-400 border-2 border-white z-10 ml-1"></div>
+                            </div>
+                          )}
+                          {layoutName === "creative" && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-50">
+                              <div className="w-full h-full bg-slate-200 flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-full border-4 border-white bg-slate-400 shadow-sm"></div>
+                              </div>
+                            </div>
+                          )}
+                          {layoutName === "corporate" && (
+                            <div className="absolute inset-0 flex opacity-60">
+                              <div className="w-1/3 h-full bg-slate-600 flex flex-col items-center pt-2 gap-1">
+                                <div className="w-5 h-5 rounded-full bg-white/50"></div>
+                              </div>
+                              <div className="w-2/3 bg-white"></div>
+                            </div>
+                          )}
+                          {layoutName === "glass" && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-60 bg-gradient-to-br from-blue-200 to-purple-200">
+                              <div className="w-16 h-10 bg-white/50 backdrop-blur-sm rounded border border-white/60"></div>
+                            </div>
+                          )}
+                          {layoutName === "elegant" && (
+                            <div className="absolute inset-0 p-2 flex flex-col items-center justify-center opacity-50">
+                              <div className="w-full h-full border border-slate-500 flex items-center justify-center">
+                                <div className="w-6 h-6 rotate-45 border border-slate-500"></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <span className="text-xs font-bold capitalize text-slate-600">
+                          {layoutName}
+                        </span>
+                        {form.layout === layoutName && (
+                          <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-blue-600 rounded-full"></div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Banner Colors */}
+                <div>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase ml-1 mb-2">
+                    Banner & Skin
+                  </label>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          banner: { ...form.banner, type: "color" },
+                        })
+                      }
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${
+                        form.banner.type === "color"
+                          ? "bg-slate-800 text-white border-slate-800"
+                          : "bg-white border-slate-200 text-slate-600"
+                      }`}
+                    >
+                      Color
+                    </button>
+                    <button
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          banner: { ...form.banner, type: "image" },
+                        })
+                      }
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${
+                        form.banner.type === "image"
+                          ? "bg-slate-800 text-white border-slate-800"
+                          : "bg-white border-slate-200 text-slate-600"
+                      }`}
+                    >
+                      Image
+                    </button>
                   </div>
 
-                  {/* 2. Banner Settings */}
-                  <div className="space-y-4">
-                    <label className="block text-[11px] font-black text-slate-400 uppercase ml-1">
-                      Banner Style
-                    </label>
-                    <div className="p-1 bg-slate-100 rounded-xl inline-flex mb-2">
-                      <button
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            banner: { ...form.banner, type: "color" },
-                          })
-                        }
-                        className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                          form.banner.type === "color"
-                            ? "bg-white shadow-sm text-slate-800"
-                            : "text-slate-500"
-                        }`}
-                      >
-                        Solid Color
-                      </button>
-                      <button
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            banner: { ...form.banner, type: "image" },
-                          })
-                        }
-                        className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                          form.banner.type === "image"
-                            ? "bg-white shadow-sm text-slate-800"
-                            : "text-slate-500"
-                        }`}
-                      >
-                        Image URL
-                      </button>
-                    </div>
-
-                    {form.banner.type === "color" ? (
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="color"
-                          value={form.banner.value || "#2563eb"}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              banner: {
-                                type: "color",
-                                value: e.target.value,
-                              },
-                            })
-                          }
-                          className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0 overflow-hidden"
-                        />
-                        <input
-                          type="text"
-                          value={form.banner.value}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              banner: {
-                                type: "color",
-                                value: e.target.value,
-                              },
-                            })
-                          }
-                          placeholder="#000000"
-                          className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-sm font-mono"
-                        />
-                      </div>
-                    ) : (
-                      <Input
-                        label="Banner Image URL"
-                        placeholder="https://..."
+                  {form.banner.type === "color" ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
                         value={form.banner.value}
                         onChange={(e) =>
                           setForm({
                             ...form,
-                            banner: {
-                              type: "image",
-                              value: e.target.value,
-                            },
+                            banner: { type: "color", value: e.target.value },
                           })
                         }
+                        className="h-10 w-12 rounded cursor-pointer border-0"
                       />
-                    )}
-                  </div>
-
-                  {/* 3. Typography */}
-                  <div className="space-y-4">
-                    <label className="block text-[11px] font-black text-slate-400 uppercase ml-1">
-                      Typography
-                    </label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {[
-                        { id: "basic", label: "Basic", class: "font-sans" },
-                        { id: "serif", label: "Serif", class: "font-serif" },
-                        { id: "mono", label: "Mono", class: "font-mono" },
-                      ].map((font) => (
-                        <button
-                          key={font.id}
-                          onClick={() =>
-                            setForm({ ...form, fontStyle: font.id })
-                          }
-                          className={`py-3 px-4 rounded-xl border transition-all text-sm ${
-                            font.class
-                          } ${
-                            form.fontStyle === font.id
-                              ? "border-blue-600 bg-blue-50 text-blue-700 font-bold"
-                              : "border-slate-200 text-slate-600 hover:border-slate-300"
-                          }`}
-                        >
-                          Aa {font.label}
-                        </button>
-                      ))}
+                      <input
+                        value={form.banner.value}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            banner: { type: "color", value: e.target.value },
+                          })
+                        }
+                        className="flex-1 px-3 border rounded-xl text-sm"
+                      />
                     </div>
-                  </div>
-
-                  {/* 4. Card Skin (Background) */}
-                  <div className="space-y-4">
-                    <label className="block text-[11px] font-black text-slate-400 uppercase ml-1">
-                      Page Background (Skin)
-                    </label>
+                  ) : (
                     <Input
-                      label="Background Color or Image URL"
-                      placeholder="#F3F4F6 or https://..."
-                      value={form.cardSkin || ""}
+                      placeholder="Banner Image URL..."
+                      value={form.banner.value}
                       onChange={(e) =>
-                        setForm({ ...form, cardSkin: e.target.value })
+                        setForm({
+                          ...form,
+                          banner: { type: "image", value: e.target.value },
+                        })
                       }
                     />
-                    <p className="text-[10px] text-slate-400 ml-1">
-                      Paste a HEX color code (e.g. #ffffff) or a direct image
-                      link.
-                    </p>
-                  </div>
+                  )}
+                </div>
 
-                  {/* Danger Zone */}
-                  <div className="pt-10 border-t border-slate-100 mt-8">
-                    <div className="flex items-center gap-2 text-red-600 font-bold mb-2">
-                      <Trash2 size={18} /> Danger Zone
-                    </div>
-                    <p className="text-sm text-slate-400 mb-4">
-                      Once you delete a card, there is no going back. Please be
-                      certain.
-                    </p>
-                    <button
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="text-red-600 font-bold text-sm hover:underline"
-                    >
-                      Permanently delete this card
-                    </button>
+                {/* Typography Selection (UPDATED: 6 FONTS) */}
+                <div>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase ml-1 mb-2">
+                    Typography
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {fontOptions.map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => setForm({ ...form, fontStyle: f.id })}
+                        className={`flex items-center justify-center py-3 rounded-lg border text-sm capitalize transition-all ${
+                          form.fontStyle === f.id
+                            ? "bg-slate-900 text-white border-slate-900 shadow-md"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                        } ${f.class}`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              )}
-            </div>
+
+                {/* Card Skin */}
+                <div>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase ml-1 mb-2">
+                    Page Background (Skin)
+                  </label>
+                  <Input
+                    placeholder="#F3F4F6 or https://..."
+                    value={form.cardSkin || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, cardSkin: e.target.value })
+                    }
+                  />
+                  <p className="text-[10px] text-slate-400 ml-1 mt-1">
+                    Paste a HEX color code (e.g. #ffffff) or a direct image
+                    link. Essential for "Glass" layout.
+                  </p>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100">
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex items-center gap-2 text-red-600 text-xs font-bold hover:underline"
+                  >
+                    <Trash2 size={14} /> Delete Card
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Live Preview */}
         <div className="w-full lg:w-2/5 flex flex-col items-center">
-          <div className="sticky top-28 flex flex-col items-center">
+          <div className="sticky top-28">
             <CardPreview data={form} />
           </div>
         </div>
@@ -507,13 +548,15 @@ export default function EditCardPage() {
 
 function Input({ label, ...props }) {
   return (
-    <div className="space-y-1">
-      <label className="block text-[11px] font-black text-slate-500 ml-1 uppercase">
-        {label}
-      </label>
+    <div className="mb-3">
+      {label && (
+        <label className="block text-[11px] font-black text-slate-500 ml-1 uppercase mb-1">
+          {label}
+        </label>
+      )}
       <input
         {...props}
-        className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+        className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-300"
       />
     </div>
   );

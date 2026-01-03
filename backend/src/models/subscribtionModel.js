@@ -6,7 +6,7 @@ const COLLECTION = "subscriptions";
 // Define the FREE plan structure
 const FREE_PLAN = {
   plan: "FREE",
-  maxCards: 5, // limit of 1 card for FREE plan
+  maxCards: 5, // ✅ limit set to 5 cards
   cardsCreated: 0,
   features: {
     customTheme: false,
@@ -31,7 +31,7 @@ export const SubscriptionModel = {
     };
 
     await db.collection(COLLECTION).doc(uid).set(data);
-    return data; // return the created subscription
+    return data;
   },
 
   async create(uid, data) {
@@ -52,6 +52,16 @@ export const SubscriptionModel = {
       .update({
         ...data,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+  },
+
+  async decrementCardCount(uid) {
+    await db
+      .collection(COLLECTION)
+      .doc(uid)
+      .update({
+        // Prevent going below 0
+        cardsCreated: admin.firestore.FieldValue.increment(-1),
       });
   },
 
