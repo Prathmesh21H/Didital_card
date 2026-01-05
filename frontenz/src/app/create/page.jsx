@@ -74,7 +74,7 @@ export default function CreateCardPage() {
     setForm({ ...form, banner: { type, value } });
   };
 
-  // --- 1. MODIFIED: LOCAL PREVIEW ONLY ---
+  // --- LOCAL PREVIEW ONLY ---
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -100,7 +100,7 @@ export default function CreateCardPage() {
     setForm((prev) => ({ ...prev, profileUrl: "" }));
   };
 
-  // --- 2. MODIFIED: UPLOAD + SAVE ---
+  // --- UPLOAD + SAVE ---
   const handleCreate = async () => {
     setLoading(true);
     setError("");
@@ -404,12 +404,45 @@ export default function CreateCardPage() {
                           }`}
                         >
                           <div className="w-full aspect-[4/3] bg-slate-100 rounded-lg overflow-hidden relative shadow-sm border border-slate-200/50">
-                            {/* Simplified layout previews for code brevity */}
-                            <div className="absolute inset-0 flex items-center justify-center opacity-40">
-                              <span className="text-[10px] uppercase font-bold text-slate-500">
-                                {layoutName}
-                              </span>
-                            </div>
+                            {layoutName === "minimal" && (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-50">
+                                <div className="w-8 h-8 rounded-full bg-slate-400"></div>
+                                <div className="w-12 h-1.5 bg-slate-300 rounded-full"></div>
+                              </div>
+                            )}
+                            {layoutName === "modern" && (
+                              <div className="absolute inset-0 flex flex-col p-2 gap-2 opacity-50">
+                                <div className="w-full h-6 bg-slate-300 rounded-t-lg mb-[-10px]"></div>
+                                <div className="w-8 h-8 rounded-lg bg-slate-400 border-2 border-white z-10 ml-1"></div>
+                              </div>
+                            )}
+                            {layoutName === "creative" && (
+                              <div className="absolute inset-0 flex items-center justify-center opacity-50">
+                                <div className="w-full h-full bg-slate-200 flex items-center justify-center">
+                                  <div className="w-10 h-10 rounded-full border-4 border-white bg-slate-400 shadow-sm"></div>
+                                </div>
+                              </div>
+                            )}
+                            {layoutName === "corporate" && (
+                              <div className="absolute inset-0 flex opacity-60">
+                                <div className="w-1/3 h-full bg-slate-600 flex flex-col items-center pt-2 gap-1">
+                                  <div className="w-5 h-5 rounded-full bg-white/50"></div>
+                                </div>
+                                <div className="w-2/3 bg-white"></div>
+                              </div>
+                            )}
+                            {layoutName === "glass" && (
+                              <div className="absolute inset-0 flex items-center justify-center opacity-60 bg-gradient-to-br from-blue-200 to-purple-200">
+                                <div className="w-16 h-10 bg-white/50 backdrop-blur-sm rounded border border-white/60"></div>
+                              </div>
+                            )}
+                            {layoutName === "elegant" && (
+                              <div className="absolute inset-0 p-2 flex flex-col items-center justify-center opacity-50">
+                                <div className="w-full h-full border border-slate-500 flex items-center justify-center">
+                                  <div className="w-6 h-6 rotate-45 border border-slate-500"></div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                           <span className="text-xs font-bold capitalize text-slate-600">
                             {layoutName}
