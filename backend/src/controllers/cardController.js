@@ -1,5 +1,5 @@
 import { CardModel } from "../models/cardModel.js";
-import { SubscriptionModel } from "../models/subscribtionModel.js"; // Ensure typo matches your file 'subscribtionModel.js'
+import { SubscriptionModel } from "../models/subscriptionModel.js"; // Ensure typo matches your file 'subscribtionModel.js'
 import { validateCardFeatures } from "../utils/cardFeatureGaurd.js";
 
 // --- HELPER: Remove undefined values ---
@@ -48,11 +48,12 @@ export const createCard = async (req, res) => {
 export const getMyCards = async (req, res) => {
   try {
     const cards = await CardModel.findByOwner(req.user.uid);
-    res.json(cards);
+    res.json({ cards }); // ✅ wrap in object
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 /**
  * Fetch single card by ID (For Edit Page)

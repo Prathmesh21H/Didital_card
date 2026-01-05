@@ -1,42 +1,50 @@
-import { SubscriptionModel } from "../models/subscribtionModel.js";
+import { SubscriptionModel } from "../models/subscriptionModel.js";
 
 const checkCardLimit = async (req, res, next) => {
   try {
     const uid = req.user.uid;
+
+    // 1️⃣ Fetch subscription
     let sub = await SubscriptionModel.findByUid(uid);
 
+    // 2️⃣ Auto-create FREE plan if missing
     if (!sub) {
-      console.log(`No subscription found for ${uid}, creating FREE plan...`); // Debug Log
+      console.log(`No subscription found for ${uid}, creating FREE plan...`);
       sub = await SubscriptionModel.createFree(uid);
     }
 
-    // --- DEBUG LOGGING ---
+    const {
+      plan,
+      cardsCreated = 0,
+      cardLimit = 0,
+      isUnlimited = false,
+    } = sub;
+
+    // 3️⃣ DEBUG LOG (KEEP THIS)
     console.log("Subscription Check:", {
-      uid: sub.uid,
-      plan: sub.plan,
-      created: sub.cardsCreated,
-      max: sub.maxCards,
+      uid,
+      plan,
+      cardsCreated,
+      cardLimit,
+      isUnlimited,
     });
-    // ---------------------
 
-    const isActive = true;
+    // 4️⃣ Enforce limit ONLY if not unlimited
+    if (!isUnlimited && cardsCreated >= cardLimit) {
+      console.log("403 Forbidden: Card limit reached");
 
-    if (!isActive) {
-      return res.status(403).json({ message: "Subscription inactive." });
-    }
-
-    // Check limit
-    if (sub.maxCards !== "unlimited" && sub.cardsCreated >= sub.maxCards) {
-      console.log("403 Forbidden: Limit reached"); // Debug Log
       return res.status(403).json({
-        message: `Card limit reached (${sub.cardsCreated}/${sub.maxCards}). Upgrade to create more.`,
+        message: `Card limit reached (${cardsCreated}/${cardLimit}). Upgrade to create more.`,
       });
     }
 
+    // 5️⃣ Allow request
     next();
   } catch (error) {
     console.error("Check Card Limit Error:", error);
-    res.status(500).json({ message: "Server error validating subscription." });
+    res.status(500).json({
+      message: "Server error validating subscription.",
+    });
   }
 };
 

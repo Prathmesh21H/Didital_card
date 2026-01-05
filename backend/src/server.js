@@ -7,7 +7,7 @@ dotenv.config();
 
 // Routes
 import userRoutes from "./routes/userRoute.js";
-import subscriptionRoutes from "./routes/subscribtionRoute.js";
+import subscriptionRoutes from "./routes/subscriptionRoute.js";
 import cardRoutes from "./routes/cardRoute.js";
 import recentlyScannedRoutes from "./routes/recentlyScannedRoutes.js";
 

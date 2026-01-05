@@ -1,5 +1,7 @@
 import axios from "axios";
 
+/* ---------------- AXIOS INSTANCE ---------------- */
+
 const API = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
   headers: {
@@ -7,7 +9,9 @@ const API = axios.create({
   },
 });
 
-// Helper to attach the token to all future requests
+/* ---------------- AUTH TOKEN HANDLER ---------------- */
+
+// Attach / remove token globally
 export const setAuthToken = (token) => {
   if (token) {
     API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -16,45 +20,85 @@ export const setAuthToken = (token) => {
   }
 };
 
-// --- API CATEGORIES ---
+/* ---------------- USER APIs ---------------- */
+
 export const userAPI = {
-  createOrUpdate: (userData) => API.post("/users", userData),
-  getProfile: () => API.get("/users/me"),
+  createOrUpdate: async (userData) => {
+    const response = await API.post("/users", userData);
+    return response.data;
+  },
+
+  getProfile: async () => {
+    const response = await API.get("/users/me");
+    return response.data;
+  },
 };
 
+/* ---------------- SUBSCRIPTION APIs ---------------- */
+
 export const subscriptionAPI = {
+  // Get current subscription
   getCurrentSubscription: async () => {
-    // FIX: Changed 'api' to 'API' to match your instance
     const response = await API.get("/subscription");
     return response.data;
   },
-  selectPlan: async (data) => {
-    // data = { planId: 'pro' }
-    // FIX: Changed 'api' to 'API'
-    const response = await API.post("/subscription/select", data);
+
+  // Select plan
+  // MUST send: { plan: "FREE" | "PRO" | "PREMIUM" }
+  selectPlan: async ({ plan }) => {
+    const response = await API.post("/subscription/select", { plan });
     return response.data;
   },
-  confirmPayment: async (data) => {
-    // FIX: Changed 'api' to 'API'
-    const response = await API.post("/subscription/confirm-payment", data);
+
+  // Confirm payment (mock / real gateway)
+  confirmPayment: async ({
+    plan,
+    paymentGateway = "demo",
+    paymentId = "demo_payment",
+  }) => {
+    const response = await API.post("/subscription/confirm-payment", {
+      plan,
+      paymentGateway,
+      paymentId,
+    });
     return response.data;
   },
 };
 
-export const cardAPI = {
-  createCard: (cardData) => API.post("/cards", cardData),
-  getMyCards: () => API.get("/cards/me"),
+/* ---------------- CARD APIs ---------------- */
 
-  // --- ADD THIS FUNCTION ---
+export const cardAPI = {
+  createCard: async (cardData) => {
+    const response = await API.post("/cards", cardData);
+    return response.data;
+  },
+
+  getMyCards: async () => {
+    const response = await API.get("/cards/me");
+    return response.data;
+  },
+
   getCardById: async (cardId) => {
     const response = await API.get(`/cards/${cardId}`);
     return response.data;
   },
-  // ------------------------
 
-  updateCard: (cardId, updateData) => API.put(`/cards/${cardId}`, updateData),
-  deleteCard: (cardId) => API.delete(`/cards/${cardId}`),
-  getPublicCard: (cardLink) => API.get(`/cards/public/${cardLink}`),
+  updateCard: async (cardId, updateData) => {
+    const response = await API.put(`/cards/${cardId}`, updateData);
+    return response.data;
+  },
+
+  deleteCard: async (cardId) => {
+    const response = await API.delete(`/cards/${cardId}`);
+    return response.data;
+  },
+
+  getPublicCard: async (cardLink) => {
+    const response = await API.get(`/cards/public/${cardLink}`);
+    return response.data;
+  },
 };
+
+/* ---------------- EXPORT ---------------- */
 
 export default API;

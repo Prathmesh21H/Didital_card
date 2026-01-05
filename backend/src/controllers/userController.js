@@ -1,5 +1,5 @@
 import { UserModel } from "../models/userModel.js";
-import { SubscriptionModel } from "../models/subscribtionModel.js";
+import { SubscriptionModel } from "../models/subscriptionModel.js";
 
 /**
  * Helper to remove undefined keys from an object

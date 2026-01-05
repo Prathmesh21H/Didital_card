@@ -257,7 +257,7 @@ const AuthModal = ({ isOpen, onClose, initialView = "login" }) => {
     try {
       await signInWithPopup(auth, provider);
       onClose();
-      router.push("/dashboard"); // 3. Redirect to dashboard
+      router.push("/subscibtion"); 
     } catch (error) {
       console.error(error);
       alert(error.message);
@@ -270,7 +270,7 @@ const AuthModal = ({ isOpen, onClose, initialView = "login" }) => {
     try {
       await signInWithPopup(auth, provider);
       onClose();
-      router.push("/dashboard"); // 3. Redirect to dashboard
+      router.push("/subscibtion"); 
     } catch (error) {
       console.error(error);
       alert(error.message);
@@ -298,7 +298,7 @@ const AuthModal = ({ isOpen, onClose, initialView = "login" }) => {
         }
         await createUserWithEmailAndPassword(auth, email, password);
         onClose();
-        router.push("/dashboard"); // 3. Redirect to dashboard
+        router.push("/subscibtion"); // 3. Redirect to dashboard
       } else if (submitMode === "forgot-password") {
         await sendPasswordResetEmail(auth, email);
         setResetSent(true);

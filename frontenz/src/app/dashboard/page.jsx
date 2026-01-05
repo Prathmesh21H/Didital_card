@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Router from "next/router";
 import {
   Zap,
   X,
@@ -15,6 +16,7 @@ import {
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { userAPI, cardAPI, setAuthToken } from "@/lib/api";
+import { subscriptionAPI } from "@/lib/api";
 
 // Ensure this path matches where you saved the file above
 import ShareModal from "@/components/ShareModal";
@@ -68,69 +70,71 @@ const Header = ({ onToggleSidebar, user }) => {
   );
 };
 
-const Sidebar = ({ isOpen, onClose, user, onLogout }) => (
-  <>
-    {isOpen && (
-      <div
-        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-        onClick={onClose}
-      />
-    )}
-    <aside
-      className={`fixed top-0 left-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      }`}
-    >
-      <div className="flex flex-col h-full">
-        <div className="flex justify-end p-4">
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-800"
-          >
-            <X size={24} />
-          </button>
-        </div>
-        <div className="flex flex-col items-center px-6 pb-6 border-b border-gray-100">
-          <img
-            src={getAvatarUrl(user)}
-            alt="P"
-            className="w-24 h-24 rounded-full border-4 border-blue-50 mb-3 object-cover"
-          />
-          <h2 className="text-xl font-semibold text-gray-800 text-center">
-            {user?.fullName || "Welcome!"}
-          </h2>
-          <p className="text-sm text-gray-500 text-center">{user?.email}</p>
-        </div>
-        <nav className="flex-1 px-4 py-6 space-y-2">
-          <button
-            onClick={() => router.push("/profile")}
-            className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
-          >
-            <User size={20} className="mr-3" />
-            Edit Profile
-          </button>
+const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
+  const router = useRouter();
+  return (
+    <>
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+          onClick={onClose}
+        />
+      )}
+      <aside
+        className={`fixed top-0 left-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex flex-col h-full">
+          <div className="flex justify-end p-4">
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-800"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          <div className="flex flex-col items-center px-6 pb-6 border-b border-gray-100">
+            <img
+              src={getAvatarUrl(user)}
+              alt="P"
+              className="w-24 h-24 rounded-full border-4 border-blue-50 mb-3 object-cover"
+            />
+            <h2 className="text-xl font-semibold text-gray-800 text-center">
+              {user?.fullName || "Welcome!"}
+            </h2>
+            <p className="text-sm text-gray-500 text-center">{user?.email}</p>
+          </div>
+          <nav className="flex-1 px-4 py-6 space-y-2">
+            <button
+              onClick={() => router.push("/profile")}
+              className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
+            >
+              <User size={20} className="mr-3" />
+              Edit Profile
+            </button>
 
-          <button
-            onClick={() => router.push("/subscription")}
-            className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
-          >
-            <CreditCard size={20} className="mr-3" />
-            Subscription
-          </button>
-        </nav>
-        <div className="p-4 border-t border-gray-100">
-          <button
-            onClick={onLogout}
-            className="flex items-center w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
-          >
-            <LogOut size={20} className="mr-3" /> Logout
-          </button>
+            <button
+              onClick={() => router.push("/subscibtion")}
+              className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
+            >
+              <CreditCard size={20} className="mr-3" />
+              Subscription
+            </button>
+          </nav>
+          <div className="p-4 border-t border-gray-100">
+            <button
+              onClick={onLogout}
+              className="flex items-center w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+            >
+              <LogOut size={20} className="mr-3" /> Logout
+            </button>
+          </div>
         </div>
-      </div>
-    </aside>
-  </>
-);
-
+      </aside>
+    </>
+  );
+};
 // --- MODALS (ProfileModal) ---
 const ProfileModal = ({ isOpen, onClose, user, onSaveSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -218,6 +222,7 @@ const Dashboard = () => {
   const [isCardsLoading, setIsCardsLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [subscription, setSubscription] = useState(null);
 
   // New State for Share Modal
   const [activeShareCard, setActiveShareCard] = useState(null);
@@ -229,12 +234,18 @@ const Dashboard = () => {
         setAuthToken(token);
 
         try {
-          const [userData, cardsData] = await Promise.all([
+          const [userData, cardsData, subData] = await Promise.all([
             userAPI.getProfile(),
             cardAPI.getMyCards(),
+            subscriptionAPI.getCurrentSubscription(),
           ]);
           setUser(userData.data);
-          setCards(cardsData.data);
+          const extractedCards = cardsData?.cards || [];
+          setCards(extractedCards);
+          console.log("CARDS OBJECT 👉", cardsData);
+          console.log("CARDS ARRAY 👉", cardsData.cards);
+
+          setSubscription(subData);
         } catch (error) {
           setShowProfileModal(true);
         } finally {
@@ -254,7 +265,23 @@ const Dashboard = () => {
     router.push("/");
   };
 
-  const handleCreateClick = () => router.push("/create");
+  const handleCreateClick = () => {
+    if (!subscription) return;
+
+    const { created, max, isUnlimited } = subscription;
+
+    // 🔒 LIMIT CHECK
+    if (!isUnlimited && created >= max) {
+      alert(
+        `Card limit reached (${max}). Upgrade your plan to create more cards.`
+      );
+      router.push("/subscription");
+      return;
+    }
+
+    // ✅ SAFE NAVIGATION
+    router.push("/create");
+  };
 
   const handleEditClick = (id) => {
     router.push(`/edit/${id}`);
@@ -290,7 +317,7 @@ const Dashboard = () => {
           <div className="flex justify-center items-center h-64">
             <Loader2 className="animate-spin text-blue-600 w-10 h-10" />
           </div>
-        ) : cards.length === 0 ? (
+        ) : cards?.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
             <p className="text-gray-500 mb-4 text-lg">
               You haven't created any cards yet.
