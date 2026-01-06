@@ -4,47 +4,48 @@ const checkCardLimit = async (req, res, next) => {
   try {
     const uid = req.user.uid;
 
-    // 1️⃣ Fetch subscription
     let sub = await SubscriptionModel.findByUid(uid);
 
-    // 2️⃣ Auto-create FREE plan if missing
+    // Auto-create FREE plan
     if (!sub) {
-      console.log(`No subscription found for ${uid}, creating FREE plan...`);
       sub = await SubscriptionModel.createFree(uid);
     }
 
-    const {
-      plan,
-      cardsCreated = 0,
-      cardLimit = 0,
-      isUnlimited = false,
-    } = sub;
+    // 🔥 AUTO FIX OLD DATA
+    if (sub.plan === "FREE" && sub.cardLimit !== 1) {
+      await SubscriptionModel.update(uid, { cardLimit: 1 });
+      sub.cardLimit = 1;
+    }
+    if (sub.plan === "PRO" && sub.cardLimit !== 5) {
+      await SubscriptionModel.update(uid, {
+        cardLimit: 5,
+        isUnlimited: false,
+      });
+      sub.cardLimit = 5;
+      sub.isUnlimited = false;
+    }
+    
 
-    // 3️⃣ DEBUG LOG (KEEP THIS)
+    const { cardsCreated = 0, cardLimit, isUnlimited } = sub;
+
     console.log("Subscription Check:", {
       uid,
-      plan,
+      plan: sub.plan,
       cardsCreated,
       cardLimit,
       isUnlimited,
     });
 
-    // 4️⃣ Enforce limit ONLY if not unlimited
     if (!isUnlimited && cardsCreated >= cardLimit) {
-      console.log("403 Forbidden: Card limit reached");
-
       return res.status(403).json({
-        message: `Card limit reached (${cardsCreated}/${cardLimit}). Upgrade to create more.`,
+        message: `Card limit reached (${cardsCreated}/${cardLimit})`,
       });
     }
 
-    // 5️⃣ Allow request
     next();
-  } catch (error) {
-    console.error("Check Card Limit Error:", error);
-    res.status(500).json({
-      message: "Server error validating subscription.",
-    });
+  } catch (err) {
+    console.error("Check Card Limit Error:", err);
+    res.status(500).json({ message: "Subscription validation failed" });
   }
 };
 

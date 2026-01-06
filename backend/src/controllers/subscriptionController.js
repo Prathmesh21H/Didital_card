@@ -2,7 +2,7 @@ import { SubscriptionModel } from "../models/subscriptionModel.js";
 
 const PLAN_CONFIG = {
   FREE: {
-    cardLimit: 5,
+    cardLimit: 1,
     isUnlimited: false,
     features: {
       customTheme: false,
@@ -11,8 +11,8 @@ const PLAN_CONFIG = {
     },
   },
   PRO: {
-    cardLimit: null,
-    isUnlimited: true,
+    cardLimit: 5,
+    isUnlimited: false,
     features: {
       customTheme: true,
       analytics: true,

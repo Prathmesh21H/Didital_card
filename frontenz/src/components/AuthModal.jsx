@@ -2,7 +2,15 @@
 import React, { useState, useEffect } from "react";
 // 1. Import useRouter for redirection
 import { useRouter } from "next/navigation";
-import { X, ArrowLeft, Smartphone, Apple, Sparkles } from "lucide-react";
+import {
+  X,
+  ArrowLeft,
+  Smartphone,
+  Apple,
+  Sparkles,
+  Eye,       // Added Eye icon
+  EyeOff     // Added EyeOff icon
+} from "lucide-react";
 import {
   signInWithPopup,
   GoogleAuthProvider,
@@ -31,6 +39,10 @@ const AuthFormContent = ({
   handleAppleLogin,
   handlePhoneLogin,
 }) => {
+  // State for password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   return (
     <div className="w-full">
       <form onSubmit={(e) => handleSubmit(e, mode)} className="space-y-4">
@@ -54,15 +66,24 @@ const AuthFormContent = ({
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Password
             </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
-              placeholder="••••••••"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"} // Toggle type
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-slate-50 focus:bg-white pr-10" // Added pr-10 for icon space
+                placeholder="••••••••"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
         )}
 
@@ -71,15 +92,24 @@ const AuthFormContent = ({
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Confirm Password
             </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleInputChange}
-              className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
-              placeholder="••••••••"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"} // Toggle type
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-slate-50 focus:bg-white pr-10"
+                placeholder="••••••••"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
         )}
 
@@ -257,7 +287,7 @@ const AuthModal = ({ isOpen, onClose, initialView = "login" }) => {
     try {
       await signInWithPopup(auth, provider);
       onClose();
-      router.push("/subscibtion"); 
+      router.push("/dashboard"); // Redirect to Dashboard after Google login
     } catch (error) {
       console.error(error);
       alert(error.message);
@@ -270,7 +300,7 @@ const AuthModal = ({ isOpen, onClose, initialView = "login" }) => {
     try {
       await signInWithPopup(auth, provider);
       onClose();
-      router.push("/subscibtion"); 
+      router.push("/dashboard"); // Redirect to Dashboard after Apple login
     } catch (error) {
       console.error(error);
       alert(error.message);
@@ -288,17 +318,20 @@ const AuthModal = ({ isOpen, onClose, initialView = "login" }) => {
 
     try {
       if (submitMode === "login") {
+        // --- LOGIN FLOW ---
         await signInWithEmailAndPassword(auth, email, password);
         onClose();
-        router.push("/dashboard"); // 3. Redirect to dashboard
+        router.push("/dashboard"); // Redirect to Dashboard
       } else if (submitMode === "signup") {
+        // --- SIGNUP FLOW ---
         if (password !== confirmPassword) {
           alert("Passwords do not match");
           return;
         }
         await createUserWithEmailAndPassword(auth, email, password);
-        onClose();
-        router.push("/subscibtion"); // 3. Redirect to dashboard
+        // After signup success, switch to Login view instead of closing
+        alert("Account created successfully! Please log in.");
+        switchView("login");
       } else if (submitMode === "forgot-password") {
         await sendPasswordResetEmail(auth, email);
         setResetSent(true);

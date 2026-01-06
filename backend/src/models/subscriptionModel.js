@@ -5,17 +5,16 @@ const COLLECTION = "subscriptions";
 
 const FREE_PLAN = {
   plan: "FREE",
-  cardLimit: 5,
+  cardLimit: 1,
   isUnlimited: false,
-  cardsCreated: 0,   // ✅ keep this
-  status: "active", // ✅ ADD THIS
+  cardsCreated: 0,
+  status: "active",
   features: {
     customTheme: false,
     analytics: false,
     removeBranding: false,
   },
 };
-
 
 export const SubscriptionModel = {
   async findByUid(uid) {
@@ -50,19 +49,49 @@ export const SubscriptionModel = {
     });
   },
 
-  async incrementCardCount(uid) {
-    await db.collection(COLLECTION).doc(uid).update({
-      cardsCreated: admin.firestore.FieldValue.increment(1),
+  /* ------------------------------------------------
+     🔥 ATOMIC CARD COUNT INCREMENT (ONLY AUTHORITY)
+  ------------------------------------------------ */
+  async incrementCardCountAtomic(uid) {
+    const ref = db.collection(COLLECTION).doc(uid);
+
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) {
+        throw new Error("Subscription missing");
+      }
+
+      const {
+        cardsCreated = 0,
+        cardLimit = 1,
+        isUnlimited = false,
+      } = snap.data();
+
+      if (!isUnlimited && cardsCreated >= cardLimit) {
+        throw new Error("CARD_LIMIT_REACHED");
+      }
+
+      tx.update(ref, {
+        cardsCreated: admin.firestore.FieldValue.increment(1),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
     });
   },
 
   async decrementCardCount(uid) {
-    const doc = await db.collection(COLLECTION).doc(uid).get();
-    const current = doc.data()?.cardsCreated || 0;
-    if (current > 0) {
-      await db.collection(COLLECTION).doc(uid).update({
-        cardsCreated: admin.firestore.FieldValue.increment(-1),
-      });
-    }
+    const ref = db.collection(COLLECTION).doc(uid);
+
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return;
+
+      const current = snap.data().cardsCreated || 0;
+      if (current > 0) {
+        tx.update(ref, {
+          cardsCreated: admin.firestore.FieldValue.increment(-1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    });
   },
 };

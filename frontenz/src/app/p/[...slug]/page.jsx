@@ -68,23 +68,25 @@ export default function PublicCardPage() {
 
   // --- BACKGROUND & TEXT COLOR LOGIC ---
   const getStyles = () => {
-    if (!card)
-      return { skinStyle: {}, textClass: "text-slate-900", bgImage: null };
+    if (!card) return { skin: {}, textClass: "text-slate-900" };
 
     const skinValue = card.cardSkin;
     let skinStyle = { backgroundColor: "#ffffff" }; // Default White
     let textClass = "text-slate-900"; // Default Dark Text
-    let bgImage = null; // Storing image URL separately for performance
 
     if (skinValue) {
       // Check if it looks like an image URL (contains http or /)
       const isImage = skinValue.includes("http") || skinValue.includes("/");
 
       if (isImage) {
-        // PERFORMANCE FIX: We do not set background-image here.
-        // We set the container to transparent and pass the URL to a fixed div.
-        bgImage = skinValue;
-        skinStyle = { backgroundColor: "transparent" };
+        skinStyle = {
+          backgroundImage: `url(${skinValue})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        };
+        // For images, we can't easily know brightness, so we might default to dark text
+        // or add a backdrop blur container to ensure readability.
       } else {
         // It is a color (Hex, RGB, or Name)
         skinStyle = { backgroundColor: skinValue };
@@ -116,18 +118,17 @@ export default function PublicCardPage() {
           }
         : { backgroundColor: card.banner?.value || "#2563eb" };
 
-    return { skinStyle, bannerStyle, textClass, bgImage };
+    return { skinStyle, bannerStyle, textClass };
   };
 
-  const { skinStyle, bannerStyle, textClass, bgImage } = getStyles();
+  const { skinStyle, bannerStyle, textClass } = getStyles();
 
   const getLayoutClasses = () => {
     if (!card) return {};
     switch (card.layout) {
       case "corporate":
         return {
-          // Changed min-h-screen to min-h-[100dvh] for mobile consistency
-          container: "flex flex-col md:flex-row min-h-[100dvh] text-left",
+          container: "flex flex-col md:flex-row min-h-screen text-left",
           sidebar:
             "bg-slate-800 w-full md:w-1/3 min-h-[300px] md:h-full relative flex flex-col items-center pt-10 text-white",
           mainContent: "w-full md:w-2/3 h-full p-8 pt-12",
@@ -138,7 +139,7 @@ export default function PublicCardPage() {
         };
       case "glass":
         return {
-          container: `text-center min-h-[100dvh] relative z-10 flex flex-col items-center pt-20 ${
+          container: `text-center min-h-screen relative z-10 flex flex-col items-center pt-20 ${
             !card.cardSkin
               ? "bg-gradient-to-br from-indigo-100 to-purple-100"
               : ""
@@ -151,7 +152,7 @@ export default function PublicCardPage() {
       case "elegant":
         return {
           // Pure transparent container
-          container: `text-center min-h-[100dvh] border-[12px] border-double ${
+          container: `text-center min-h-screen border-[12px] border-double ${
             textClass.includes("white") ? "border-white/50" : "border-slate-800"
           } m-0 md:m-6 flex flex-col`,
           header: "h-64 relative flex items-end justify-center",
@@ -164,7 +165,7 @@ export default function PublicCardPage() {
         };
       case "modern":
         return {
-          container: "text-left min-h-[100dvh]",
+          container: "text-left min-h-screen",
           headerWrapper: "relative h-48",
           avatarWrapper:
             "absolute -bottom-14 left-8 size-36 rounded-2xl shadow-lg border-4 border-white bg-slate-200 overflow-hidden z-10",
@@ -173,7 +174,7 @@ export default function PublicCardPage() {
         };
       case "creative":
         return {
-          container: "text-center min-h-[100dvh]",
+          container: "text-center min-h-screen",
           headerWrapper: "relative h-56 flex justify-center items-center",
           avatarWrapper:
             "absolute -bottom-20 left-1/2 transform -translate-x-1/2 size-40 rounded-full shadow-2xl border-4 border-white/50 backdrop-blur-sm bg-slate-200 overflow-hidden z-10",
@@ -183,7 +184,7 @@ export default function PublicCardPage() {
       case "minimal":
       default:
         return {
-          container: "text-center min-h-[100dvh]",
+          container: "text-center min-h-screen",
           headerWrapper: "relative h-40",
           avatarWrapper:
             "absolute -bottom-16 left-1/2 transform -translate-x-1/2 size-32 rounded-full shadow-lg border-4 border-white bg-slate-200 overflow-hidden",
@@ -230,13 +231,13 @@ export default function PublicCardPage() {
 
   if (loading)
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
       </div>
     );
   if (error || !card)
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         Card Not Found
       </div>
     );
@@ -246,33 +247,11 @@ export default function PublicCardPage() {
 
   return (
     <div
-      // Changed min-h-screen to min-h-[100dvh] for mobile stability
-      className={`min-h-[100dvh] relative transition-colors duration-500 ${fontFamily} ${textClass}`}
+      className={`min-h-screen transition-colors duration-500 ${fontFamily} ${textClass}`}
       style={skinStyle}
     >
-      {/* --- HIGH PERFORMANCE BACKGROUND IMAGE --- */}
-      {bgImage && (
-        <div
-          // UPDATES:
-          // 1. h-[100dvh]: Ignores mobile address bar resizing, preventing jitter.
-          // 2. transform-gpu: Forces hardware acceleration.
-          // 3. pointer-events-none: Ensures scrolls pass through to content immediately.
-          className="fixed inset-0 z-0 w-full h-[100dvh] transform-gpu pointer-events-none"
-          style={{
-            backgroundImage: `url(${bgImage})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-            // 4. will-change: Hint to browser to optimize layering
-            willChange: "transform",
-          }}
-        />
-      )}
-
-      {/* --- CONTENT WRAPPER --- */}
-      {/* relative z-10 ensures content sits ON TOP of the fixed background */}
       <div
-        className={`relative z-10 w-full max-w-xl mx-auto shadow-2xl overflow-hidden min-h-[100dvh] flex flex-col transition-all duration-300`}
+        className={`w-full max-w-xl mx-auto shadow-2xl overflow-hidden min-h-screen flex flex-col relative transition-all duration-300`}
       >
         {/* --- CORPORATE LAYOUT --- */}
         {card.layout === "corporate" ? (
@@ -367,10 +346,13 @@ export default function PublicCardPage() {
         ) : card.layout === "glass" ? (
           /* --- GLASS LAYOUT --- */
           <div className={layout.container}>
-            {/* For Glass layout with image skin, we add an overlay div. */}
-            {bgImage && (
-              <div className="absolute inset-0 bg-white/20 backdrop-blur-sm z-0"></div>
-            )}
+            {/* If user selected a color skin, we don't need blur overlay, just the color. 
+                 If user selected an IMAGE skin, we add blur. */}
+            {card.cardSkin &&
+              (card.cardSkin.includes("http") ||
+                card.cardSkin.includes("/")) && (
+                <div className="absolute inset-0 bg-white/20 backdrop-blur-sm z-0"></div>
+              )}
 
             <div className="relative z-10 w-full flex flex-col items-center">
               <div className={layout.avatarWrapper}>
@@ -647,6 +629,15 @@ const GlassLink = ({ icon, value, label, onClick }) => (
       <p className="text-sm font-semibold text-slate-900 truncate">{value}</p>
     </div>
   </div>
+);
+
+const SimpleIconLink = ({ icon, onClick }) => (
+  <button
+    onClick={onClick}
+    className="flex items-center justify-center p-4 border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition shadow-sm"
+  >
+    {icon}
+  </button>
 );
 
 const StandardLink = ({ icon, label, value, href, color, bg, border }) => (
