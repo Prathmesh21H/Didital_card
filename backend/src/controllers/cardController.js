@@ -1,62 +1,81 @@
 import { CardModel } from "../models/cardModel.js";
-import { SubscriptionModel } from "../models/subscribtionModel.js"; // Ensure typo matches your file 'subscribtionModel.js'
-import { validateCardFeatures } from "../utils/cardFeatureGaurd.js";
+import { SubscriptionModel } from "../models/subscriptionModel.js";
+// import { validateCardData } from "../utils/validateCardData.js";
+// import { validateCardFeatures } from "../utils/cardFeatureGaurd.js";
 
-// --- HELPER: Remove undefined values ---
-const cleanData = (obj) => {
-  return JSON.parse(JSON.stringify(obj));
-};
+/* -----------------------------------
+   HELPER: Remove undefined values
+----------------------------------- */
+const cleanData = (obj) => JSON.parse(JSON.stringify(obj));
 
-/**
- * Create Digital Card
- */
+/* -----------------------------------
+   CREATE DIGITAL CARD (FIXED)
+----------------------------------- */
 export const createCard = async (req, res) => {
   try {
     const uid = req.user.uid;
 
-    // 1. Get Subscription (Middleware has already checked the limit, but we need settings for validation)
-    const subscription = await SubscriptionModel.findByUid(uid);
+    const cardData = cleanData(req.body);
+    // const validationErrors = validateCardData(cardData);
+    // if (validationErrors) {
+    //   return res.status(400).json({ message: "Validation failed", errors: validationErrors });
+    // }
 
+    // 1️⃣ Ensure subscription exists
+    const subscription = await SubscriptionModel.findByUid(uid);
     if (!subscription) {
       return res.status(403).json({
-        message: "No active subscription found for this user",
+        message: "No active subscription found",
       });
     }
 
-    const cardData = cleanData(req.body);
+    
+    
+    // const error = validateCardFeatures(subscription, cardData);
+    // if (error) {
+    //   return res.status(403).json({ message: error });
+    // }
 
-    // 2. Validate Feature usage (e.g. is this theme allowed on this plan?)
-    const error = validateCardFeatures(subscription, cardData);
-    if (error) return res.status(403).json({ message: error });
-
-    // 3. Create Card
+    // 3️⃣ Create card
     const card = await CardModel.create(uid, cardData);
 
-    // 4. Increment Count
-    await SubscriptionModel.incrementCardCount(uid);
+    // 4️⃣ ATOMIC increment + limit enforcement
+    // 🔥 This is the ONLY place limit is enforced
+    try {
+      await SubscriptionModel.incrementCardCountAtomic(uid);
+    } catch (err) {
+      // Rollback card if limit exceeded
+      await CardModel.delete(card.cardId, uid);
 
-    res.status(201).json(card);
+      return res.status(403).json({
+        message: "Card limit reached. Upgrade your plan.",
+      });
+    }
+
+    return res.status(201).json(card);
   } catch (err) {
     console.error("Create Card Error:", err);
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({
+      message: "Failed to create card",
+    });
   }
 };
 
-/**
- * Fetch my cards
- */
+/* -----------------------------------
+   FETCH MY CARDS
+----------------------------------- */
 export const getMyCards = async (req, res) => {
   try {
     const cards = await CardModel.findByOwner(req.user.uid);
-    res.json(cards);
+    res.json({ cards });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-/**
- * Fetch single card by ID (For Edit Page)
- */
+/* -----------------------------------
+   FETCH CARD BY ID
+----------------------------------- */
 export const getCardById = async (req, res) => {
   try {
     const { cardId } = req.params;
@@ -68,7 +87,6 @@ export const getCardById = async (req, res) => {
       return res.status(404).json({ message: "Card not found" });
     }
 
-    // Ownership check
     if (card.ownerUid !== uid) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -80,9 +98,9 @@ export const getCardById = async (req, res) => {
   }
 };
 
-/**
- * Update card
- */
+/* -----------------------------------
+   UPDATE CARD
+----------------------------------- */
 export const updateCard = async (req, res) => {
   try {
     const updateData = cleanData(req.body);
@@ -93,7 +111,9 @@ export const updateCard = async (req, res) => {
       updateData
     );
 
-    if (!success) return res.status(404).json({ message: "Card not found" });
+    if (!success) {
+      return res.status(404).json({ message: "Card not found" });
+    }
 
     res.json({ updated: true });
   } catch (err) {
@@ -101,24 +121,19 @@ export const updateCard = async (req, res) => {
   }
 };
 
-/**
- * Delete card
- * UPDATE: Now decrements the card count
- */
+/* -----------------------------------
+   DELETE CARD
+----------------------------------- */
 export const deleteCard = async (req, res) => {
   try {
     const uid = req.user.uid;
     const cardId = req.params.cardId;
 
-    // 1. Attempt Delete
     const success = await CardModel.delete(cardId, uid);
-
     if (!success) {
       return res.status(404).json({ message: "Card not found" });
     }
 
-    // 2. Decrement Count on success
-    // This fixes the "Limit Reached" error after deleting items
     await SubscriptionModel.decrementCardCount(uid);
 
     res.json({ deleted: true });
@@ -128,20 +143,17 @@ export const deleteCard = async (req, res) => {
   }
 };
 
-/**
- * Public card fetch
- */
+/* -----------------------------------
+   PUBLIC CARD FETCH
+----------------------------------- */
 export const getCardByLink = async (req, res) => {
   try {
-    // With regex routes, the capture group is at index 0
     const cardLink = req.params[0];
-
     if (!cardLink) {
       return res.status(404).json({ message: "No link provided" });
     }
 
     const card = await CardModel.findByLink(cardLink);
-
     if (!card) {
       return res.status(404).json({ message: "Card not found" });
     }

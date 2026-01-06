@@ -11,12 +11,13 @@ import {
   ExternalLink,
   Edit3,
   Share2,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { userAPI, cardAPI, setAuthToken } from "@/lib/api";
+import { userAPI, cardAPI, setAuthToken, subscriptionAPI } from "@/lib/api";
 
-// Ensure this path matches where you saved the file above
 import ShareModal from "@/components/ShareModal";
 
 // --- UTILS ---
@@ -42,7 +43,7 @@ const getBannerStyle = (banner) => {
 // --- COMPONENTS ---
 
 const Header = ({ onToggleSidebar, user }) => {
-  const router = useRouter(); // ✅ FIX
+  const router = useRouter();
 
   return (
     <header className="bg-white shadow-sm h-16 fixed w-full top-0 z-30 flex items-center justify-between px-4 lg:px-6">
@@ -68,70 +69,74 @@ const Header = ({ onToggleSidebar, user }) => {
   );
 };
 
-const Sidebar = ({ isOpen, onClose, user, onLogout }) => (
-  <>
-    {isOpen && (
-      <div
-        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-        onClick={onClose}
-      />
-    )}
-    <aside
-      className={`fixed top-0 left-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      }`}
-    >
-      <div className="flex flex-col h-full">
-        <div className="flex justify-end p-4">
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-800"
-          >
-            <X size={24} />
-          </button>
-        </div>
-        <div className="flex flex-col items-center px-6 pb-6 border-b border-gray-100">
-          <img
-            src={getAvatarUrl(user)}
-            alt="P"
-            className="w-24 h-24 rounded-full border-4 border-blue-50 mb-3 object-cover"
-          />
-          <h2 className="text-xl font-semibold text-gray-800 text-center">
-            {user?.fullName || "Welcome!"}
-          </h2>
-          <p className="text-sm text-gray-500 text-center">{user?.email}</p>
-        </div>
-        <nav className="flex-1 px-4 py-6 space-y-2">
-          <button
-            onClick={() => router.push("/profile")}
-            className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
-          >
-            <User size={20} className="mr-3" />
-            Edit Profile
-          </button>
+const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
+  const router = useRouter();
+  return (
+    <>
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+          onClick={onClose}
+        />
+      )}
+      <aside
+        className={`fixed top-0 left-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex flex-col h-full">
+          <div className="flex justify-end p-4">
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-800"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          <div className="flex flex-col items-center px-6 pb-6 border-b border-gray-100">
+            <img
+              src={getAvatarUrl(user)}
+              alt="Profile"
+              className="w-24 h-24 rounded-full border-4 border-blue-50 mb-3 object-cover"
+            />
+            <h2 className="text-xl font-semibold text-gray-800 text-center">
+              {user?.fullName || "Welcome!"}
+            </h2>
+            <p className="text-sm text-gray-500 text-center">{user?.email}</p>
+          </div>
+          <nav className="flex-1 px-4 py-6 space-y-2">
+            <button
+              onClick={() => router.push("/profile")}
+              className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
+            >
+              <User size={20} className="mr-3" />
+              Edit Profile
+            </button>
 
-          <button
-            onClick={() => router.push("/subscription")}
-            className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
-          >
-            <CreditCard size={20} className="mr-3" />
-            Subscription
-          </button>
-        </nav>
-        <div className="p-4 border-t border-gray-100">
-          <button
-            onClick={onLogout}
-            className="flex items-center w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
-          >
-            <LogOut size={20} className="mr-3" /> Logout
-          </button>
+            <button
+              onClick={() => router.push("/subscription")}
+              className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
+            >
+              <CreditCard size={20} className="mr-3" />
+              Subscription
+            </button>
+          </nav>
+          <div className="p-4 border-t border-gray-100">
+            <button
+              onClick={onLogout}
+              className="flex items-center w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+            >
+              <LogOut size={20} className="mr-3" /> Logout
+            </button>
+          </div>
         </div>
-      </div>
-    </aside>
-  </>
-);
+      </aside>
+    </>
+  );
+};
 
-// --- MODALS (ProfileModal) ---
+// --- MODALS ---
+
 const ProfileModal = ({ isOpen, onClose, user, onSaveSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -163,6 +168,7 @@ const ProfileModal = ({ isOpen, onClose, user, onSaveSuccess }) => {
       onSaveSuccess(updatedUser);
       onClose();
     } catch (error) {
+      console.error(error);
       alert("Failed to update profile.");
     } finally {
       setIsSubmitting(false);
@@ -199,9 +205,14 @@ const ProfileModal = ({ isOpen, onClose, user, onSaveSuccess }) => {
           </div>
           <button
             onClick={handleSubmit}
-            className="bg-blue-600 text-white p-3 rounded-xl mt-4 font-bold"
+            className="bg-blue-600 text-white p-3 rounded-xl mt-4 font-bold flex justify-center items-center"
+            disabled={isSubmitting}
           >
-            {isSubmitting ? "Saving..." : "Save"}
+            {isSubmitting ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              "Save"
+            )}
           </button>
         </div>
       </div>
@@ -209,18 +220,67 @@ const ProfileModal = ({ isOpen, onClose, user, onSaveSuccess }) => {
   );
 };
 
-// --- MAIN DASHBOARD ---
+const DeleteModal = ({ isOpen, onClose, onConfirm, isDeleting }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="bg-red-50 w-12 h-12 rounded-full flex items-center justify-center mb-4 text-red-600 mx-auto">
+          <AlertTriangle size={24} />
+        </div>
+        <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+          Delete Card?
+        </h3>
+        <p className="text-gray-500 text-center text-sm mb-6">
+          This action cannot be undone. This card will be permanently removed.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={isDeleting}
+            className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Deleting...
+              </>
+            ) : (
+              "Delete"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- DASHBOARD PAGE ---
 
 const Dashboard = () => {
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Data State
   const [cards, setCards] = useState([]);
-  const [isCardsLoading, setIsCardsLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [subscription, setSubscription] = useState(null);
+  
+  // UI State
+  const [isCardsLoading, setIsCardsLoading] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
-
-  // New State for Share Modal
   const [activeShareCard, setActiveShareCard] = useState(null);
+  
+  // Delete State
+  const [cardToDelete, setCardToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -229,14 +289,27 @@ const Dashboard = () => {
         setAuthToken(token);
 
         try {
-          const [userData, cardsData] = await Promise.all([
+          // Fetch initial data
+          const [userData, cardsData, subData] = await Promise.all([
             userAPI.getProfile(),
             cardAPI.getMyCards(),
+            subscriptionAPI.getCurrentSubscription(),
           ]);
-          setUser(userData.data);
-          setCards(cardsData.data);
+
+          setUser(userData);
+          
+          const extractedCards = Array.isArray(cardsData) 
+            ? cardsData 
+            : (cardsData?.cards || []);
+            
+          setCards(extractedCards);
+          setSubscription(subData);
+
         } catch (error) {
-          setShowProfileModal(true);
+          console.error("Dashboard Load Error:", error);
+          if (error?.response?.status === 404) {
+             setShowProfileModal(true);
+          }
         } finally {
           setIsCardsLoading(false);
         }
@@ -254,7 +327,17 @@ const Dashboard = () => {
     router.push("/");
   };
 
-  const handleCreateClick = () => router.push("/create");
+  const handleCreateClick = () => {
+    if (!subscription) return;
+    const { created, max, isUnlimited } = subscription;
+
+    if (!isUnlimited && created >= max) {
+      alert(`Card limit reached (${max}). Upgrade your plan to create more cards.`);
+      router.push("/subscription");
+      return;
+    }
+    router.push("/create");
+  };
 
   const handleEditClick = (id) => {
     router.push(`/edit/${id}`);
@@ -263,6 +346,45 @@ const Dashboard = () => {
   const handleOpenPublicCard = (card) => {
     const slug = card.cardLink || card.cardId || card._id;
     window.open(`/p/${slug}`, "_blank");
+  };
+
+  // --- DELETE HANDLER ---
+  const initiateDelete = (card) => {
+    setCardToDelete(card);
+  };
+
+  const confirmDelete = async () => {
+    if (!cardToDelete) return;
+    setIsDeleting(true);
+
+    try {
+      const validId = cardToDelete.cardId || cardToDelete._id;
+      
+      // 1. Perform Delete
+      await cardAPI.deleteCard(validId);
+
+      // 2. Remove card from local list immediately
+      setCards((prevCards) =>
+        prevCards.filter((c) => (c.cardId || c._id) !== validId)
+      );
+
+      // 3. REFETCH Subscription & User API to update counts/limits
+      const [updatedUser, updatedSub] = await Promise.all([
+        userAPI.getProfile(),
+        subscriptionAPI.getCurrentSubscription(),
+      ]);
+
+      // 4. Update State with fresh data
+      setUser(updatedUser);
+      setSubscription(updatedSub);
+
+      setCardToDelete(null); // Close modal
+    } catch (error) {
+      console.error("Delete failed", error);
+      alert("Failed to delete card. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -290,7 +412,7 @@ const Dashboard = () => {
           <div className="flex justify-center items-center h-64">
             <Loader2 className="animate-spin text-blue-600 w-10 h-10" />
           </div>
-        ) : cards.length === 0 ? (
+        ) : cards?.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
             <p className="text-gray-500 mb-4 text-lg">
               You haven't created any cards yet.
@@ -326,31 +448,37 @@ const Dashboard = () => {
                       {card.designation || "No Designation"}
                     </p>
 
-                    {/* BUTTONS SECTION */}
                     <div className="flex gap-2 mt-6">
-                      {/* EDIT Button */}
                       <button
                         onClick={() => handleEditClick(validId)}
                         className="flex-1 py-2.5 bg-slate-50 rounded-lg text-sm font-bold border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-center gap-2"
+                        title="Edit Card"
                       >
                         <Edit3 size={16} /> Edit
                       </button>
 
-                      {/* SHARE Button */}
                       <button
                         onClick={() => setActiveShareCard(card)}
                         className="flex-1 py-2.5 bg-blue-600 rounded-lg text-sm font-bold border border-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        title="Share Card"
                       >
                         <Share2 size={16} /> Share
                       </button>
 
-                      {/* OPEN Button */}
                       <button
                         onClick={() => handleOpenPublicCard(card)}
                         title="Open public card"
-                        className="w-12 py-2.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors flex items-center justify-center"
+                        className="w-10 py-2.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors flex items-center justify-center"
                       >
                         <ExternalLink size={18} />
+                      </button>
+
+                      <button
+                        onClick={() => initiateDelete(card)}
+                        title="Delete card"
+                        className="w-10 py-2.5 bg-red-50 text-red-600 rounded-lg border border-red-100 hover:bg-red-100 transition-colors flex items-center justify-center"
+                      >
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
@@ -368,10 +496,16 @@ const Dashboard = () => {
         onSaveSuccess={setUser}
       />
 
-      {/* Render ShareModal */}
       <ShareModal
         card={activeShareCard}
         onClose={() => setActiveShareCard(null)}
+      />
+
+      <DeleteModal
+        isOpen={!!cardToDelete}
+        onClose={() => setCardToDelete(null)}
+        onConfirm={confirmDelete}
+        isDeleting={isDeleting}
       />
     </div>
   );

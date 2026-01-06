@@ -1,42 +1,51 @@
-import { SubscriptionModel } from "../models/subscribtionModel.js";
+import { SubscriptionModel } from "../models/subscriptionModel.js";
 
 const checkCardLimit = async (req, res, next) => {
   try {
     const uid = req.user.uid;
+
     let sub = await SubscriptionModel.findByUid(uid);
 
+    // Auto-create FREE plan
     if (!sub) {
-      console.log(`No subscription found for ${uid}, creating FREE plan...`); // Debug Log
       sub = await SubscriptionModel.createFree(uid);
     }
 
-    // --- DEBUG LOGGING ---
-    console.log("Subscription Check:", {
-      uid: sub.uid,
-      plan: sub.plan,
-      created: sub.cardsCreated,
-      max: sub.maxCards,
-    });
-    // ---------------------
-
-    const isActive = true;
-
-    if (!isActive) {
-      return res.status(403).json({ message: "Subscription inactive." });
+    // 🔥 AUTO FIX OLD DATA
+    if (sub.plan === "FREE" && sub.cardLimit !== 1) {
+      await SubscriptionModel.update(uid, { cardLimit: 1 });
+      sub.cardLimit = 1;
     }
+    if (sub.plan === "PRO" && sub.cardLimit !== 5) {
+      await SubscriptionModel.update(uid, {
+        cardLimit: 5,
+        isUnlimited: false,
+      });
+      sub.cardLimit = 5;
+      sub.isUnlimited = false;
+    }
+    
 
-    // Check limit
-    if (sub.maxCards !== "unlimited" && sub.cardsCreated >= sub.maxCards) {
-      console.log("403 Forbidden: Limit reached"); // Debug Log
+    const { cardsCreated = 0, cardLimit, isUnlimited } = sub;
+
+    console.log("Subscription Check:", {
+      uid,
+      plan: sub.plan,
+      cardsCreated,
+      cardLimit,
+      isUnlimited,
+    });
+
+    if (!isUnlimited && cardsCreated >= cardLimit) {
       return res.status(403).json({
-        message: `Card limit reached (${sub.cardsCreated}/${sub.maxCards}). Upgrade to create more.`,
+        message: `Card limit reached (${cardsCreated}/${cardLimit})`,
       });
     }
 
     next();
-  } catch (error) {
-    console.error("Check Card Limit Error:", error);
-    res.status(500).json({ message: "Server error validating subscription." });
+  } catch (err) {
+    console.error("Check Card Limit Error:", err);
+    res.status(500).json({ message: "Subscription validation failed" });
   }
 };
 

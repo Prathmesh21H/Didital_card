@@ -1,5 +1,5 @@
 import { RecentlyScannedModel } from "../models/recentlyScannedModel.js";
-import { SubscriptionModel } from "../models/subscribtionModel.js";
+import { SubscriptionModel } from "../models/subscriptionModel.js";
 import { CardModel } from "../models/cardModel.js";
 
 /**

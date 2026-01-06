@@ -1,15 +1,19 @@
+// utils/cardFeatureGaurd.js
 export const validateCardFeatures = (subscription, card) => {
-  // if (subscription.plan === "FREE") {
-  //   if (card.banner?.type !== "color") return "Banner not allowed";
-  //   if (card.fontStyle !== "basic") return "Font not allowed";
-  //   if (card.cardSkin) return "Card skin not allowed";
-  //   if (card.layout !== "minimal") return "Layout not allowed";
-  // }
+  const plan = subscription.plan;
 
-  // if (subscription.plan === "PRO") {
-  //   if (card.banner?.type === "url") return "Image banner requires Premium";
-  //   if (card.layout === "creative") return "Creative layout requires Premium";
-  // }
+  if (plan === "FREE") {
+    if (card.banner?.type === "image") return "Image banner not allowed on Free plan";
+    if (card.fontStyle !== "basic") return "Only basic font allowed on Free plan";
+    if (card.cardSkin) return "Custom card background not allowed on Free plan";
+    if (card.layout !== "minimal") return "Only minimal layout allowed on Free plan";
+  }
 
+  if (plan === "PRO") {
+    if (card.banner?.type === "image") return "Image banner requires Premium plan";
+    if (card.layout === "creative") return "Creative layout requires Premium plan";
+  }
+
+  // PREMIUM has no restrictions
   return null;
 };
