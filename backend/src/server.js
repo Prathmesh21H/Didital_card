@@ -23,7 +23,10 @@ app.use((req, res, next) => {
 // ----------------------
 // MIDDLEWARE
 // ----------------------
-app.use(cors());
+app.use(cors({
+  origin: ["http://localhost:3000"],
+  credentials: true,
+}));
 
 app.use(express.urlencoded({ extended: true }));
 
@@ -43,7 +46,7 @@ app.get("/", (req, res) => {
 app.use("/api/users", userRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/cards", cardRoutes);
-app.use("/api/recently-scanned", recentlyScannedRoutes);
+app.use("/api/scanned", recentlyScannedRoutes);
 
 // ----------------------
 // 404 HANDLER
