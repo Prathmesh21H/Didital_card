@@ -14,15 +14,17 @@ export const RecentlyScannedModel = {
     const doc = await ref.get();
     let scannedCards = doc.exists ? doc.data().scannedCards || [] : [];
 
-    // Remove oldest if limit reached
+    scannedCards = scannedCards.filter((card) => card.cardLink !== cardLink);
+
     if (maxLimit !== "unlimited" && scannedCards.length >= maxLimit) {
       scannedCards.shift();
     }
 
     scannedCards.push({
       cardLink,
-      scannedAt: admin.firestore.FieldValue.serverTimestamp(),
+      scannedAt: new Date(),
     });
+
     await ref.set({ scannedCards }, { merge: true });
     return scannedCards;
   },

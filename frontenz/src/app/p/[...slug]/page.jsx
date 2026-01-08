@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import React, { useEffect, useState, useCallback } from "react"; // Added useCallback
+import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import {
   Phone,
@@ -14,32 +14,47 @@ import {
   Facebook,
   UserPlus,
   Loader2,
+  Wallet,
 } from "lucide-react";
+
+// 1. ADD THESE IMPORTS
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase"; // Ensure this path is correct based on your project
+import AuthModal from "@/components/AuthModal"; // Import your existing Modal
+
+const API_BASE_URL =
+  (typeof process !== "undefined" &&
+    process.env &&
+    process.env.NEXT_PUBLIC_API_URL) ||
+  "http://localhost:5000/api";
 
 export default function PublicCardPage() {
   const params = useParams();
+  const router = useRouter();
   const rawSlug = params?.slug;
   const cardLinkString = Array.isArray(rawSlug) ? rawSlug.join("/") : rawSlug;
 
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [savingWallet, setSavingWallet] = useState(false);
 
+  // 2. NEW STATE FOR AUTH FLOW
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authView, setAuthView] = useState("signup"); // Default to signup for new users
+  const [pendingSave, setPendingSave] = useState(false); // The magic flag
+
+  // --- EXISTING FETCH LOGIC (Unchanged) ---
   useEffect(() => {
     if (!cardLinkString) return;
-
     const fetchCard = async () => {
       try {
         setLoading(true);
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
         const response = await axios.get(
-          `${API_URL}/cards/public/${cardLinkString}`
+          `${API_BASE_URL}/cards/public/${cardLinkString}`
         );
         const cardData = response.data.card || response.data;
-
         if (!cardData) throw new Error("No data found");
-
         setCard({
           ...cardData,
           banner: cardData.banner || { type: "color", value: "#2563eb" },
@@ -54,9 +69,107 @@ export default function PublicCardPage() {
         setLoading(false);
       }
     };
-
     fetchCard();
   }, [cardLinkString]);
+
+  // 3. CORE LOGIC: THE SAVE FUNCTION
+  // We separate the logic so it can be called from button OR auth listener
+  const executeWalletSave = useCallback(
+    async (userToken) => {
+      try {
+        setSavingWallet(true);
+
+        // Use token passed in, or get from storage
+        const token = userToken || localStorage.getItem("token");
+
+        await axios.post(
+          `${API_BASE_URL}/scanned`,
+          { cardLink: cardLinkString },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        alert("Card saved to your wallet successfully!");
+      } catch (err) {
+        console.error("Error saving to wallet:", err);
+        const msg = err.response?.data?.message || "Failed to save card.";
+        alert(msg);
+      } finally {
+        setSavingWallet(false);
+        setPendingSave(false); // Reset the flag
+      }
+    },
+    [cardLinkString]
+  );
+
+  // 4. NEW: AUTH STATE LISTENER
+  // This watches for when the user logs in via the modal
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user && pendingSave) {
+        // User just logged in AND had a pending save action
+        console.log("User logged in, executing pending save...");
+
+        // Close modal
+        setIsAuthOpen(false);
+
+        // Get fresh token
+        const token = await user.getIdToken();
+        localStorage.setItem("token", token); // Ensure localstorage is synced
+
+        // Trigger the save
+        executeWalletSave(token);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [pendingSave, executeWalletSave]);
+
+  const handleSaveToWallet = async () => {
+    const user = auth.currentUser;
+
+    if (user) {
+      try {
+        const freshToken = await user.getIdToken(true);
+
+        localStorage.setItem("token", freshToken);
+
+        executeWalletSave(freshToken);
+      } catch (err) {
+        console.error("Error refreshing token:", err);
+        setPendingSave(true);
+        setAuthView("login");
+        setIsAuthOpen(true);
+      }
+    } else {
+      // 2. If NOT logged in, show the modal
+      setPendingSave(true);
+      setAuthView("signup");
+      setIsAuthOpen(true);
+    }
+  };
+
+  // --- ACTIONS (Contact Save Unchanged) ---
+  const handleSaveContact = () => {
+    const vCardData = `BEGIN:VCARD\nVERSION:3.0\nFN:${card.fullName}\nORG:${
+      card.company || ""
+    }\nTITLE:${card.designation || ""}\nTEL;TYPE=CELL:${
+      card.phone || ""
+    }\nEMAIL:${card.email || ""}\nURL:${card.website || ""}\nNOTE:${
+      card.bio || "Connected via Nexcard"
+    }\nEND:VCARD`;
+    const blob = new Blob([vCardData], { type: "text/vcard" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${card.fullName.replace(" ", "_")}.vcf`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // --- HELPERS ---
   const getAvatarUrl = () => {
@@ -211,24 +324,6 @@ export default function PublicCardPage() {
     }
   };
 
-  const handleSaveContact = () => {
-    const vCardData = `BEGIN:VCARD\nVERSION:3.0\nFN:${card.fullName}\nORG:${
-      card.company || ""
-    }\nTITLE:${card.designation || ""}\nTEL;TYPE=CELL:${
-      card.phone || ""
-    }\nEMAIL:${card.email || ""}\nURL:${card.website || ""}\nNOTE:${
-      card.bio || "Connected via Nexcard"
-    }\nEND:VCARD`;
-    const blob = new Blob([vCardData], { type: "text/vcard" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `${card.fullName.replace(" ", "_")}.vcf`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -244,6 +339,10 @@ export default function PublicCardPage() {
 
   const layout = getLayoutClasses();
   const fontFamily = getFontFamily();
+
+  // Button Color helper
+  const primaryColor =
+    card.banner?.type === "color" ? card.banner.value : "#2563EB";
 
   return (
     <div
@@ -327,16 +426,17 @@ export default function PublicCardPage() {
                   />
                 )}
               </div>
-              <div className="mt-10">
-                <SaveBtn
-                  onClick={handleSaveContact}
-                  color={
-                    card.banner?.type === "color"
-                      ? card.banner.value
-                      : "#1e293b"
-                  }
+
+              {/* Actions Area */}
+              <div className="mt-10 space-y-3">
+                <SaveBtn onClick={handleSaveContact} color={primaryColor} />
+                <WalletBtn
+                  onClick={handleSaveToWallet}
+                  loading={savingWallet}
+                  textColor={textClass}
                 />
               </div>
+
               <SocialsRow
                 card={card}
                 className="justify-center md:justify-start mt-8"
@@ -346,8 +446,6 @@ export default function PublicCardPage() {
         ) : card.layout === "glass" ? (
           /* --- GLASS LAYOUT --- */
           <div className={layout.container}>
-            {/* If user selected a color skin, we don't need blur overlay, just the color. 
-                 If user selected an IMAGE skin, we add blur. */}
             {card.cardSkin &&
               (card.cardSkin.includes("http") ||
                 card.cardSkin.includes("/")) && (
@@ -405,10 +503,15 @@ export default function PublicCardPage() {
                   />
                 )}
 
-                <div className="pt-6 px-4">
+                <div className="pt-6 px-4 space-y-3">
                   <SaveBtn
                     onClick={handleSaveContact}
                     color="#334155"
+                    glass={true}
+                  />
+                  <WalletBtn
+                    onClick={handleSaveToWallet}
+                    loading={savingWallet}
                     glass={true}
                   />
                 </div>
@@ -543,16 +646,21 @@ export default function PublicCardPage() {
                 />
               )}
 
-              <div className="pt-6">
+              <div className="pt-6 space-y-3">
                 <SaveBtn
                   onClick={handleSaveContact}
-                  color={
-                    card.banner?.type === "color"
-                      ? card.banner.value
-                      : "#2563EB"
-                  }
+                  color={primaryColor}
                   bannerImage={
                     card.banner?.type === "image" ? card.banner.value : null
+                  }
+                />
+                <WalletBtn
+                  onClick={handleSaveToWallet}
+                  loading={savingWallet}
+                  textColor={
+                    textClass === "text-white"
+                      ? "text-white border-white/30 hover:bg-white/10"
+                      : "text-slate-700 border-slate-300 hover:bg-slate-50"
                   }
                 />
               </div>
@@ -561,6 +669,14 @@ export default function PublicCardPage() {
           </div>
         )}
       </div>
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => {
+          setIsAuthOpen(false);
+          setPendingSave(false); // Cancel pending save if they close manually
+        }}
+        initialView={authView}
+      />
     </div>
   );
 }
@@ -586,6 +702,31 @@ const SaveBtn = ({ onClick, color, glass, bannerImage }) => (
     <span className="relative z-10 flex items-center gap-2">
       <UserPlus size={20} /> Save Contact
     </span>
+  </button>
+);
+
+const WalletBtn = ({ onClick, loading, glass, textColor }) => (
+  <button
+    onClick={onClick}
+    disabled={loading}
+    className={`w-full py-3 rounded-xl font-bold border-2 active:scale-95 transition-all flex items-center justify-center gap-3 
+        ${
+          glass
+            ? "bg-white/20 backdrop-blur-sm border-white/30 text-slate-800 hover:bg-white/30"
+            : textColor && textColor.includes("white")
+            ? "bg-transparent border-white/40 text-white hover:bg-white/10"
+            : "bg-transparent border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+        }
+      `}
+  >
+    {loading ? (
+      <Loader2 size={20} className="animate-spin" />
+    ) : (
+      <>
+        <Wallet size={20} />
+        <span>Save to Wallet</span>
+      </>
+    )}
   </button>
 );
 

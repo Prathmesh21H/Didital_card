@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Wallet,
   Zap,
   X,
   User,
@@ -111,6 +112,14 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
             >
               <User size={20} className="mr-3" />
               Edit Profile
+            </button>
+
+            <button
+              onClick={() => router.push("/wallet")}
+              className="flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
+            >
+              <Wallet size={20} className="mr-3" />
+              Wallet
             </button>
 
             <button
@@ -267,17 +276,17 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, isDeleting }) => {
 const Dashboard = () => {
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
+
   // Data State
   const [cards, setCards] = useState([]);
   const [user, setUser] = useState(null);
   const [subscription, setSubscription] = useState(null);
-  
+
   // UI State
   const [isCardsLoading, setIsCardsLoading] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [activeShareCard, setActiveShareCard] = useState(null);
-  
+
   // Delete State
   const [cardToDelete, setCardToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -297,18 +306,17 @@ const Dashboard = () => {
           ]);
 
           setUser(userData);
-          
-          const extractedCards = Array.isArray(cardsData) 
-            ? cardsData 
-            : (cardsData?.cards || []);
-            
+
+          const extractedCards = Array.isArray(cardsData)
+            ? cardsData
+            : cardsData?.cards || [];
+
           setCards(extractedCards);
           setSubscription(subData);
-
         } catch (error) {
           console.error("Dashboard Load Error:", error);
           if (error?.response?.status === 404) {
-             setShowProfileModal(true);
+            setShowProfileModal(true);
           }
         } finally {
           setIsCardsLoading(false);
@@ -332,7 +340,9 @@ const Dashboard = () => {
     const { created, max, isUnlimited } = subscription;
 
     if (!isUnlimited && created >= max) {
-      alert(`Card limit reached (${max}). Upgrade your plan to create more cards.`);
+      alert(
+        `Card limit reached (${max}). Upgrade your plan to create more cards.`
+      );
       router.push("/subscription");
       return;
     }
@@ -359,7 +369,7 @@ const Dashboard = () => {
 
     try {
       const validId = cardToDelete.cardId || cardToDelete._id;
-      
+
       // 1. Perform Delete
       await cardAPI.deleteCard(validId);
 

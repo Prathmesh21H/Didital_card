@@ -43,7 +43,7 @@ app.get("/", (req, res) => {
 app.use("/api/users", userRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/cards", cardRoutes);
-app.use("/api/recently-scanned", recentlyScannedRoutes);
+app.use("/api/scanned", recentlyScannedRoutes);
 
 // ----------------------
 // 404 HANDLER

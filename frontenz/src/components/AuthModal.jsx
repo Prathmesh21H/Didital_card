@@ -8,8 +8,8 @@ import {
   Smartphone,
   Apple,
   Sparkles,
-  Eye,       // Added Eye icon
-  EyeOff     // Added EyeOff icon
+  Eye, // Added Eye icon
+  EyeOff, // Added EyeOff icon
 } from "lucide-react";
 import {
   signInWithPopup,
@@ -39,7 +39,6 @@ const AuthFormContent = ({
   handleAppleLogin,
   handlePhoneLogin,
 }) => {
-  // State for password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -68,11 +67,11 @@ const AuthFormContent = ({
             </label>
             <div className="relative">
               <input
-                type={showPassword ? "text" : "password"} // Toggle type
+                type={showPassword ? "text" : "password"}
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-slate-50 focus:bg-white pr-10" // Added pr-10 for icon space
+                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-slate-50 focus:bg-white pr-10"
                 placeholder="••••••••"
                 required
               />
@@ -94,7 +93,7 @@ const AuthFormContent = ({
             </label>
             <div className="relative">
               <input
-                type={showConfirmPassword ? "text" : "password"} // Toggle type
+                type={showConfirmPassword ? "text" : "password"}
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
@@ -221,8 +220,13 @@ const AuthFormContent = ({
 };
 
 // --- Main Component ---
-const AuthModal = ({ isOpen, onClose, initialView = "login" }) => {
-  const router = useRouter(); // 2. Initialize router
+const AuthModal = ({
+  isOpen,
+  onClose,
+  initialView = "login",
+  onLoginSuccess,
+}) => {
+  const router = useRouter();
   const views = ["forgot-password", "login", "signup"];
   const [view, setView] = useState(initialView);
   const [resetSent, setResetSent] = useState(false);
@@ -281,13 +285,21 @@ const AuthModal = ({ isOpen, onClose, initialView = "login" }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const onSuccess = () => {
+    if (onLoginSuccess) {
+      onLoginSuccess();
+    } else {
+      router.push("/dashboard");
+    }
+    onClose();
+  };
+
   const handleGoogleLogin = async () => {
     if (!auth) return alert("Firebase not configured");
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      onClose();
-      router.push("/dashboard"); // Redirect to Dashboard after Google login
+      onSuccess();
     } catch (error) {
       console.error(error);
       alert(error.message);
@@ -299,8 +311,7 @@ const AuthModal = ({ isOpen, onClose, initialView = "login" }) => {
     const provider = new OAuthProvider("apple.com");
     try {
       await signInWithPopup(auth, provider);
-      onClose();
-      router.push("/dashboard"); // Redirect to Dashboard after Apple login
+      onSuccess();
     } catch (error) {
       console.error(error);
       alert(error.message);
@@ -320,8 +331,7 @@ const AuthModal = ({ isOpen, onClose, initialView = "login" }) => {
       if (submitMode === "login") {
         // --- LOGIN FLOW ---
         await signInWithEmailAndPassword(auth, email, password);
-        onClose();
-        router.push("/dashboard"); // Redirect to Dashboard
+        onSuccess();
       } else if (submitMode === "signup") {
         // --- SIGNUP FLOW ---
         if (password !== confirmPassword) {
