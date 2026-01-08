@@ -804,6 +804,14 @@ const StandardLink = ({ icon, label, value, href, color, bg, border }) => (
 
 const SocialsRow = ({ card, className = "" }) => (
   <div className={`flex gap-4 flex-wrap ${className}`}>
+    {card.linkedin && (
+      <SocialIcon
+        href={card.linkedin}
+        icon={<Linkedin size={20} />}
+        color="bg-[#0077B5]"
+      />
+    )}
+
     {card.twitter && (
       <SocialIcon
         href={card.twitter}
@@ -811,6 +819,7 @@ const SocialsRow = ({ card, className = "" }) => (
         color="bg-[#1DA1F2]"
       />
     )}
+
     {card.instagram && (
       <SocialIcon
         href={card.instagram}
@@ -818,6 +827,7 @@ const SocialsRow = ({ card, className = "" }) => (
         color="bg-[#E1306C]"
       />
     )}
+
     {card.facebook && (
       <SocialIcon
         href={card.facebook}
@@ -827,6 +837,7 @@ const SocialsRow = ({ card, className = "" }) => (
     )}
   </div>
 );
+
 
 const SocialIcon = ({ href, icon, color }) => {
   const link = href.startsWith("http") ? href : `https://${href}`;
