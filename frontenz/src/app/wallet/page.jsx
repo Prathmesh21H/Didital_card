@@ -19,11 +19,9 @@ const API_BASE_URL =
   (typeof process !== "undefined" &&
     process.env &&
     process.env.NEXT_PUBLIC_API_URL) ||
-<<<<<<< HEAD
-  "http://localhost:5000/api";
-=======
+
   "http://localhost:5000/";
->>>>>>> 46c80b42962a153f32b048c14cd43684f6f4cdc3
+
 
 export default function WalletPage() {
   const router = useRouter();
@@ -45,16 +43,7 @@ export default function WalletPage() {
   const fetchWallet = async () => {
     try {
       setLoading(true);
-<<<<<<< HEAD
-      const token = localStorage.getItem("token");
-      if (!token) throw new Error("Please log in to view your wallet.");
 
-      const listUrl = `${API_BASE_URL}/scanned/me`;
-      console.log("Fetching wallet from:", listUrl);
-
-      const listResponse = await fetch(listUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-=======
   
       const token =
         typeof window !== "undefined"
@@ -70,27 +59,13 @@ export default function WalletPage() {
         headers: {
           Authorization: `Bearer ${token}`,
         },
->>>>>>> 46c80b42962a153f32b048c14cd43684f6f4cdc3
+
       });
   
       if (!listResponse.ok) throw new Error("Failed to fetch wallet");
   
       const listData = await listResponse.json();
       const scannedItems = listData.scannedCards || [];
-<<<<<<< HEAD
-
-      const results = await Promise.all(
-        scannedItems.map(async (item) => {
-          const detailUrl = `${API_BASE_URL}/scanned/me?cardLink=${encodeURIComponent(
-            item.cardLink
-          )}`;
-          const detailRes = await fetch(detailUrl, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!detailRes.ok) return null;
-          const detailData = await detailRes.json();
-          if (!detailData.card) return null;
-=======
   
       const results = await Promise.all(
         scannedItems.map(async (item) => {
@@ -107,7 +82,6 @@ export default function WalletPage() {
           const detailData = await detailRes.json();
           if (!detailData.card) return null;
   
->>>>>>> 46c80b42962a153f32b048c14cd43684f6f4cdc3
           return {
             ...detailData.card,
             scannedAt: item.scannedAt,
@@ -115,18 +89,11 @@ export default function WalletPage() {
           };
         })
       );
-<<<<<<< HEAD
-
-      const validCards = results
-        .filter(Boolean)
-        .sort((a, b) => new Date(b.scannedAt) - new Date(a.scannedAt));
-=======
   
       const validCards = results
         .filter(Boolean)
         .sort((a, b) => new Date(b.scannedAt) - new Date(a.scannedAt));
   
->>>>>>> 46c80b42962a153f32b048c14cd43684f6f4cdc3
       setCards(validCards);
       setError(null);
     } catch (err) {
