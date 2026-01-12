@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 
-
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import AuthModal from "@/components/AuthModal";
@@ -491,7 +490,6 @@ export default function PublicCardPage() {
                 </div>
                 <SocialsRow card={card} className="justify-center mt-6" />
                 <ShareQRCode textClass={textClass} />
-
               </div>
             </div>
           </div>
@@ -829,18 +827,38 @@ const ShareQRCode = ({ textClass }) => {
   const isDark = textClass === "text-white";
 
   return (
-    <div className="flex flex-col items-center mt-10 pb-6 opacity-90">
-      <QRCodeCanvas
-        value={url}
-        size={90}
-        bgColor="transparent"
-        fgColor={isDark ? "#ffffff" : "#000000"}
-        level="M"
-      />
+    <div className="flex flex-col items-center mt-10 pb-6">
+      {/* Perspective Container */}
+      <div className="group perspective-1000">
+        <div
+          className={`
+            p-3 rounded-xl transition-all duration-300 ease-out
+            /* 1. Lift Effect: Moves up and scales slightly */
+            group-hover:-translate-y-2 group-hover:scale-105
+            /* 2. 3D Rotation: Slight tilt for depth */
+            group-hover:rotate-x-12
+            /* 3. Shadow & Background */
+            ${
+              isDark
+                ? "bg-white/10 shadow-lg group-hover:shadow-white/20 group-hover:bg-white/15"
+                : "bg-white shadow-md group-hover:shadow-xl group-hover:shadow-slate-200"
+            }
+          `}
+        >
+          <QRCodeCanvas
+            value={url}
+            size={90}
+            bgColor="transparent"
+            fgColor={isDark ? "#ffffff" : "#000000"}
+            level="M"
+          />
+        </div>
+      </div>
+
       <p
-        className={`text-xs mt-2 ${
+        className={`text-xs mt-4 transition-opacity duration-300 ${
           isDark ? "text-white/70" : "text-slate-500"
-        }`}
+        } group-hover:opacity-100`}
       >
         Scan to open card
       </p>
